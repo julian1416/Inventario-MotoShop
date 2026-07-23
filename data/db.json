@@ -1,0 +1,251 @@
+{
+  "products": [
+    {
+      "id": "prod-1",
+      "name": "ICH 501 Solid",
+      "brand": "ICH",
+      "category": "Cascos Adultos",
+      "description": "Casco integral con certificación DOT, visera antirrayones y excelente ventilación.",
+      "hasVariants": true,
+      "variants": [
+        {
+          "id": "var-1-1",
+          "sizes": [
+            {
+              "size": "S",
+              "quantity": 3
+            },
+            {
+              "size": "M",
+              "quantity": 5
+            },
+            {
+              "size": "L",
+              "quantity": 8
+            },
+            {
+              "size": "XL",
+              "quantity": 2
+            }
+          ]
+        },
+        {
+          "id": "var-1-2",
+          "sizes": [
+            {
+              "size": "S",
+              "quantity": 0
+            },
+            {
+              "size": "M",
+              "quantity": 4
+            },
+            {
+              "size": "L",
+              "quantity": 6
+            },
+            {
+              "size": "XL",
+              "quantity": 3
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    },
+    {
+      "id": "prod-kid-1",
+      "name": "ICH Junior 303 Kids",
+      "brand": "ICH",
+      "category": "Cascos Niños",
+      "description": "Casco liviano de protección infantil con almohadillas acolchadas y broche micrométrico.",
+      "hasVariants": true,
+      "variants": [
+        {
+          "id": "var-kid-1",
+          "sizes": [
+            {
+              "size": "XS",
+              "quantity": 4
+            },
+            {
+              "size": "Talla Única",
+              "quantity": 6
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    },
+    {
+      "id": "prod-2",
+      "name": "Pilot Road 5",
+      "brand": "Michelin",
+      "category": "Llantas",
+      "type": "Pistera",
+      "measure": "130/70-17",
+      "description": "Llanta deportiva de excelente agarre en mojado gracias a la tecnología de laminillas Michelin XST Evo.",
+      "hasVariants": false,
+      "singleQuantity": 12,
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    },
+    {
+      "id": "prod-3",
+      "name": "Anakee Adventure",
+      "brand": "Michelin",
+      "category": "Llantas",
+      "type": "Doble propósito",
+      "measure": "110/80-R19",
+      "description": "Llanta ideal para motos Trail que buscan un excelente rendimiento 80% on-road y 20% off-road.",
+      "hasVariants": false,
+      "singleQuantity": 7,
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    },
+    {
+      "id": "prod-4",
+      "name": "Shaft 569 Solid",
+      "brand": "Shaft",
+      "category": "Cascos Adultos",
+      "description": "Casco abatible con doble visor, ideal para recorridos urbanos y de carretera.",
+      "hasVariants": true,
+      "variants": [
+        {
+          "id": "var-4-1",
+          "sizes": [
+            {
+              "size": "M",
+              "quantity": 2
+            },
+            {
+              "size": "L",
+              "quantity": 5
+            },
+            {
+              "size": "XL",
+              "quantity": 4
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    },
+    {
+      "id": "prod-5",
+      "name": "Maletero E300N2 Monolock",
+      "brand": "Givi",
+      "category": "Maleteros",
+      "description": "Maleta trasera de 30 litros de capacidad con sistema de anclaje rápido Monolock. Incluye base universal.",
+      "hasVariants": false,
+      "singleQuantity": 5,
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    },
+    {
+      "id": "prod-6",
+      "name": "Parrilla de Carga Pulsar NS 200",
+      "brand": "Promecol",
+      "category": "Parrillas",
+      "description": "Soporte trasero reforzado de alta resistencia, fabricado en acero estructural.",
+      "hasVariants": false,
+      "singleQuantity": 10,
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    },
+    {
+      "id": "prod-7",
+      "name": "Slider de Motor NS200 Carbono",
+      "brand": "Fire Parts",
+      "category": "Lujos",
+      "description": "Protectores laterales contra caídas con punteras reemplazables de diseño carbono.",
+      "hasVariants": false,
+      "singleQuantity": 19,
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:36:40.498Z"
+    },
+    {
+      "id": "prod-8",
+      "name": "Intercomunicador V6 Pro",
+      "brand": "Vnetphone",
+      "category": "Accesorios",
+      "description": "Intercomunicador Bluetooth para casco, alcance de 1200 metros, conexión hasta 6 pilotos.",
+      "hasVariants": false,
+      "singleQuantity": 9,
+      "createdAt": "2026-07-23T18:35:16.041Z",
+      "updatedAt": "2026-07-23T18:35:16.041Z"
+    }
+  ],
+  "logs": [
+    {
+      "id": "log-1",
+      "productId": "prod-2",
+      "productName": "Pilot Road 5",
+      "brand": "Michelin",
+      "category": "Llantas",
+      "type": "entry",
+      "quantity": 10,
+      "previousQuantity": 2,
+      "newQuantity": 12,
+      "timestamp": "2026-07-23T16:35:16.041Z",
+      "operator": "Bodega General"
+    },
+    {
+      "id": "log-2",
+      "productId": "prod-5",
+      "productName": "Maletero E300N2 Monolock",
+      "brand": "Givi",
+      "category": "Maleteros",
+      "type": "exit",
+      "quantity": 2,
+      "previousQuantity": 7,
+      "newQuantity": 5,
+      "timestamp": "2026-07-23T17:35:16.041Z",
+      "operator": "Vendedor Almacén"
+    },
+    {
+      "id": "log-3",
+      "productId": "prod-1",
+      "productName": "ICH 501 Solid",
+      "brand": "ICH",
+      "category": "Cascos Adultos",
+      "type": "entry",
+      "variantId": "var-1-1",
+      "size": "L",
+      "quantity": 5,
+      "previousQuantity": 3,
+      "newQuantity": 8,
+      "timestamp": "2026-07-23T18:05:16.041Z",
+      "operator": "Recepción Cajas"
+    },
+    {
+      "id": "log-1784831787493",
+      "productId": "prod-7",
+      "productName": "Slider de Motor NS200 Carbono",
+      "brand": "Fire Parts",
+      "category": "Lujos",
+      "type": "entry",
+      "quantity": 5,
+      "previousQuantity": 15,
+      "newQuantity": 20,
+      "timestamp": "2026-07-23T18:36:27.490Z",
+      "operator": "Bodega Móvil"
+    },
+    {
+      "id": "log-1784831800501",
+      "productId": "prod-7",
+      "productName": "Slider de Motor NS200 Carbono",
+      "brand": "Fire Parts",
+      "category": "Lujos",
+      "type": "exit",
+      "quantity": 1,
+      "previousQuantity": 20,
+      "newQuantity": 19,
+      "timestamp": "2026-07-23T18:36:40.498Z",
+      "operator": "Bodega Móvil"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Inventario Bodega Motos",
+  "description": "Aplicación optimizada para móviles para gestionar el inventario de una bodega de accesorios y lujos para motocicletas.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

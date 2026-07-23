@@ -1,0 +1,133 @@
+{
+  "entities": {
+    "product": {
+      "title": "Product",
+      "description": "Un producto almacenado en el inventario de la bodega de motos",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID único del producto"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nombre o referencia principal del producto"
+        },
+        "brand": {
+          "type": "string",
+          "description": "Marca del producto"
+        },
+        "category": {
+          "type": "string",
+          "description": "Categoría (Cascos, Llantas, Accesorios, Lujos, etc.)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Tipo específico de producto (Adulto, Niño, Doble propósito, etc.)"
+        },
+        "measure": {
+          "type": "string",
+          "description": "Medida o especificación técnica de llanta o repuesto"
+        },
+        "description": {
+          "type": "string",
+          "description": "Descripción opcional"
+        },
+        "hasVariants": {
+          "type": "boolean",
+          "description": "Indica si el producto tiene variantes visuales y de tallas (como los cascos)"
+        },
+        "variants": {
+          "type": "array",
+          "description": "Lista de variantes visuales con imagen y cantidades por talla"
+        },
+        "singleQuantity": {
+          "type": "number",
+          "description": "Cantidad disponible para productos sin variantes"
+        },
+        "image": {
+          "type": "string",
+          "description": "Imagen comprimida en base64 para productos sin variantes"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha de creación del producto"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha de última modificación"
+        }
+      },
+      "required": ["id", "name", "brand", "category", "hasVariants"]
+    },
+    "inventoryLog": {
+      "title": "InventoryLog",
+      "description": "Registro de cambios (entradas o salidas) de mercancía",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID del log"
+        },
+        "productId": {
+          "type": "string",
+          "description": "ID del producto afectado"
+        },
+        "productName": {
+          "type": "string",
+          "description": "Nombre del producto afectado"
+        },
+        "category": {
+          "type": "string",
+          "description": "Categoría del producto afectado"
+        },
+        "type": {
+          "type": "string",
+          "description": "Tipo de operación: entry (entrada) o exit (salida)"
+        },
+        "variantId": {
+          "type": "string",
+          "description": "ID de la variante visual si aplica"
+        },
+        "size": {
+          "type": "string",
+          "description": "Talla afectada si aplica"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Cantidad involucrada en la operación"
+        },
+        "previousQuantity": {
+          "type": "number",
+          "description": "Cantidad anterior a la operación"
+        },
+        "newQuantity": {
+          "type": "number",
+          "description": "Cantidad posterior a la operación"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha y hora del movimiento"
+        },
+        "operator": {
+          "type": "string",
+          "description": "Email o nombre del operador que realizó la acción"
+        }
+      },
+      "required": ["id", "productId", "productName", "category", "type", "quantity", "previousQuantity", "newQuantity"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "product",
+      "description": "Colección de productos del inventario"
+    },
+    "/inventory_logs/{logId}": {
+      "schema": "inventoryLog",
+      "description": "Bitácora histórica de entradas y salidas de mercancía"
+    }
+  }
+}
