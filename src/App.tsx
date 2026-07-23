@@ -104,8 +104,7 @@ export default function App() {
       const catMatch = p.category.toLowerCase().includes(q);
       const typeMatch = p.type ? p.type.toLowerCase().includes(q) : false;
       const measureMatch = p.measure ? p.measure.toLowerCase().includes(q) : false;
-      const descMatch = p.description ? p.description.toLowerCase().includes(q) : false;
-      matchesSearch = nameMatch || brandMatch || catMatch || typeMatch || measureMatch || descMatch;
+      matchesSearch = nameMatch || brandMatch || catMatch || typeMatch || measureMatch;
     }
 
     // 2. Category Filter

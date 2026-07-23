@@ -198,12 +198,6 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess }
               <span>Tipo: <strong className="text-slate-700 font-medium">{product.type}</strong></span>
             </div>
           )}
-
-          {product.description && (
-            <p className="text-xs text-slate-600 mt-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100 leading-relaxed italic">
-              "{product.description}"
-            </p>
-          )}
         </div>
 
         {/* Visual Variants / Images for Cascos */}

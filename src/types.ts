@@ -38,7 +38,6 @@ export interface Product {
   category: ProductCategory;
   type?: string; // Specific type (e.g. "Doble propósito", "Pistera" for tires)
   measure?: string; // Specific measure (e.g. "130/70-17" for tires, or dimensions for other products)
-  description?: string;
   hasVariants: boolean; // True if it has visual design variants and sizes (e.g., Helmets)
   
   // Fields for products WITHOUT variants

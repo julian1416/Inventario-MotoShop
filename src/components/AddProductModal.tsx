@@ -32,7 +32,6 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
   const [category, setCategory] = useState<ProductCategory>('Cascos Adultos');
   const [type, setType] = useState<string>('');
   const [measure, setMeasure] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
   const [hasVariants, setHasVariants] = useState<boolean>(true);
 
   // Single product image and stock (if no variants)
@@ -185,7 +184,6 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
       category,
       type: type.trim() || undefined,
       measure: measure.trim() || undefined,
-      description: description.trim() || undefined,
       hasVariants,
     };
 
@@ -330,17 +328,6 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
                 </div>
               </div>
             )}
-
-            {/* Optional description */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500">Descripción opcional</label>
-              <textarea
-                placeholder="Escribe detalles adicionales..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs h-16 resize-none focus:ring-2 focus:ring-orange-500 outline-none leading-relaxed"
-              />
-            </div>
 
             {/* HELMETS SECTION (with multiple visual variants and sizes) */}
             {hasVariants ? (
