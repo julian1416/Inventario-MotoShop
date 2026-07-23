@@ -3,19 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import fs from 'fs';
-import path from 'path';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Product, InventoryLog } from './src/types.js';
 
-// Use /tmp for serverless/Vercel environments where process.cwd() is read-only
-const DATA_DIR = process.env.VERCEL || process.env.NODE_ENV === 'production' 
-  ? path.join('/tmp', 'data') 
-  : path.join(process.cwd(), 'data');
-const DB_FILE = path.join(DATA_DIR, 'db.json');
-
-// In-memory cache fallback for read-only filesystem environments
-let inMemoryDb: { products: Product[]; logs: InventoryLog[] } | null = null;
+// In-memory database fallback (no fs or disk writing for Vercel/Serverless compatibility)
+let inMemoryProducts: Product[] = getStarterProducts();
+let inMemoryLogs: InventoryLog[] = getStarterLogs();
 
 // Initialize Supabase Client if credentials exist
 let supabase: SupabaseClient | null = null;
@@ -31,63 +24,21 @@ if (supabaseUrl && supabaseKey && supabaseUrl !== 'MY_SUPABASE_URL') {
   }
 }
 
-// Helper to ensure local data directory and file exist (for fallback)
-function ensureLocalDb() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    
-    if (!fs.existsSync(DB_FILE)) {
-      const initialData = inMemoryDb || {
-        products: getStarterProducts(),
-        logs: getStarterLogs()
-      };
-      fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
-    }
-  } catch (e) {
-    // Gracefully handle read-only filesystems in cloud environments (Vercel, etc.)
-  }
-}
-
-// Synchronous local getDb (in-memory + disk fallback)
+// Synchronous local getDb (in-memory state)
 export function getDb(): { products: Product[]; logs: InventoryLog[] } {
-  if (inMemoryDb) {
-    return inMemoryDb;
-  }
-
-  try {
-    ensureLocalDb();
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, 'utf-8');
-      inMemoryDb = JSON.parse(raw);
-      return inMemoryDb!;
-    }
-  } catch (error) {
-    console.warn("Could not read disk DB, initializing in-memory state:", error);
-  }
-
-  inMemoryDb = {
-    products: getStarterProducts(),
-    logs: getStarterLogs()
+  return {
+    products: inMemoryProducts,
+    logs: inMemoryLogs
   };
-  return inMemoryDb;
 }
 
-// Synchronous local saveDb (in-memory + disk fallback)
+// Synchronous local saveDb (in-memory state update)
 export function saveDb(data: { products: Product[]; logs: InventoryLog[] }) {
-  inMemoryDb = data;
-  try {
-    ensureLocalDb();
-    if (fs.existsSync(DATA_DIR)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    }
-  } catch (e) {
-    // Swallowed safely if filesystem is read-only
-  }
+  inMemoryProducts = data.products;
+  inMemoryLogs = data.logs;
 }
 
-// Map database row to Product
+// Map database row to Product (handles both snake_case from SQL and camelCase)
 function mapProductFromRow(row: any): Product {
   return {
     id: String(row.id),
@@ -106,7 +57,7 @@ function mapProductFromRow(row: any): Product {
   };
 }
 
-// Map database row to InventoryLog
+// Map database row to InventoryLog (handles both snake_case from SQL and camelCase)
 function mapLogFromRow(row: any): InventoryLog {
   return {
     id: String(row.id),
@@ -120,12 +71,12 @@ function mapLogFromRow(row: any): InventoryLog {
     quantity: Number(row.quantity),
     previousQuantity: Number(row.previousQuantity ?? row.previous_quantity ?? 0),
     newQuantity: Number(row.newQuantity ?? row.new_quantity ?? 0),
-    timestamp: row.timestamp || row.created_at || new Date().toISOString(),
+    timestamp: row.timestamp || row.created_at || row.timestamp || new Date().toISOString(),
     operator: row.operator
   };
 }
 
-// Async API for Supabase with local fallback
+// Async API for Supabase with in-memory fallback
 export async function getProductsAsync(): Promise<Product[]> {
   if (supabase) {
     try {
@@ -133,48 +84,26 @@ export async function getProductsAsync(): Promise<Product[]> {
       if (!error && data) {
         return data.map(mapProductFromRow);
       }
-      console.warn("Supabase fetch products error, falling back to local storage:", error?.message);
+      console.warn("Supabase fetch products notice:", error?.message);
     } catch (err: any) {
-      console.warn("Supabase products exception, falling back to local storage:", err.message);
+      console.warn("Supabase products exception:", err.message);
     }
   }
-  return getDb().products;
+  return inMemoryProducts;
 }
 
 export async function saveProductAsync(product: Product): Promise<void> {
-  // Always update local cache/fallback
-  const localDb = getDb();
-  const idx = localDb.products.findIndex(p => p.id === product.id);
+  // Update in-memory state
+  const idx = inMemoryProducts.findIndex(p => p.id === product.id);
   if (idx >= 0) {
-    localDb.products[idx] = product;
+    inMemoryProducts[idx] = product;
   } else {
-    localDb.products.push(product);
+    inMemoryProducts.push(product);
   }
-  saveDb(localDb);
 
   if (supabase) {
     try {
-      // Attempt camelCase upsert first
-      const camelRow = {
-        id: product.id,
-        name: product.name,
-        brand: product.brand,
-        category: product.category,
-        type: product.type || null,
-        measure: product.measure || null,
-        hasVariants: product.hasVariants,
-        singleQuantity: product.singleQuantity ?? null,
-        image: product.image || null,
-        thumbnail: product.thumbnail || null,
-        variants: product.variants || null,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt
-      };
-
-      const { error: err1 } = await supabase.from('products').upsert(camelRow);
-      if (!err1) return;
-
-      // Try snake_case if camelCase failed
+      // Primary: snake_case for standard PostgreSQL / Supabase schemas
       const snakeRow = {
         id: product.id,
         name: product.name,
@@ -191,9 +120,28 @@ export async function saveProductAsync(product: Product): Promise<void> {
         updated_at: product.updatedAt
       };
 
-      const { error: err2 } = await supabase.from('products').upsert(snakeRow);
-      if (err2) {
-        console.error("Supabase upsert product error:", err2.message);
+      const { error: err1 } = await supabase.from('products').upsert(snakeRow);
+      if (err1) {
+        // Secondary fallback: camelCase
+        const camelRow = {
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          category: product.category,
+          type: product.type || null,
+          measure: product.measure || null,
+          hasVariants: product.hasVariants,
+          singleQuantity: product.singleQuantity ?? null,
+          image: product.image || null,
+          thumbnail: product.thumbnail || null,
+          variants: product.variants || null,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt
+        };
+        const { error: err2 } = await supabase.from('products').upsert(camelRow);
+        if (err2) {
+          console.error("Supabase upsert product error:", err2.message);
+        }
       }
     } catch (err: any) {
       console.error("Supabase save product exception:", err.message);
@@ -202,9 +150,7 @@ export async function saveProductAsync(product: Product): Promise<void> {
 }
 
 export async function deleteProductAsync(id: string): Promise<void> {
-  const localDb = getDb();
-  localDb.products = localDb.products.filter(p => p.id !== id);
-  saveDb(localDb);
+  inMemoryProducts = inMemoryProducts.filter(p => p.id !== id);
 
   if (supabase) {
     try {
@@ -221,7 +167,6 @@ export async function deleteProductAsync(id: string): Promise<void> {
 export async function getLogsAsync(): Promise<InventoryLog[]> {
   if (supabase) {
     try {
-      // Try fetching from logs table or inventory_logs table
       let { data, error } = await supabase.from('logs').select('*');
       if (error) {
         const res2 = await supabase.from('inventory_logs').select('*');
@@ -231,60 +176,55 @@ export async function getLogsAsync(): Promise<InventoryLog[]> {
       if (!error && data) {
         return data.map(mapLogFromRow);
       }
-      console.warn("Supabase fetch logs error, falling back to local storage:", error?.message);
+      console.warn("Supabase fetch logs notice:", error?.message);
     } catch (err: any) {
-      console.warn("Supabase logs exception, falling back to local storage:", err.message);
+      console.warn("Supabase logs exception:", err.message);
     }
   }
-  return getDb().logs;
+  return inMemoryLogs;
 }
 
 export async function saveLogAsync(log: InventoryLog): Promise<void> {
-  const localDb = getDb();
-  localDb.logs.push(log);
-  saveDb(localDb);
+  inMemoryLogs.push(log);
 
   if (supabase) {
     try {
-      const camelRow = {
+      const snakeRow = {
         id: log.id,
-        productId: log.productId,
-        productName: log.productName,
+        product_id: log.productId,
+        product_name: log.productName,
         brand: log.brand,
         category: log.category,
         type: log.type,
-        variantId: log.variantId || null,
+        variant_id: log.variantId || null,
         size: log.size || null,
         quantity: log.quantity,
-        previousQuantity: log.previousQuantity,
-        newQuantity: log.newQuantity,
+        previous_quantity: log.previousQuantity,
+        new_quantity: log.newQuantity,
+        created_at: log.timestamp,
         timestamp: log.timestamp,
-        operator: log.operator
+        operator: log.operator || null
       };
 
-      // Try inserting into logs table first
-      let { error } = await supabase.from('logs').upsert(camelRow);
+      let { error } = await supabase.from('logs').upsert(snakeRow);
       if (error) {
-        // Try snake_case
-        const snakeRow = {
+        const camelRow = {
           id: log.id,
-          product_id: log.productId,
-          product_name: log.productName,
+          productId: log.productId,
+          productName: log.productName,
           brand: log.brand,
           category: log.category,
           type: log.type,
-          variant_id: log.variantId || null,
+          variantId: log.variantId || null,
           size: log.size || null,
           quantity: log.quantity,
-          previous_quantity: log.previousQuantity,
-          new_quantity: log.newQuantity,
-          created_at: log.timestamp,
+          previousQuantity: log.previousQuantity,
+          newQuantity: log.newQuantity,
           timestamp: log.timestamp,
-          operator: log.operator
+          operator: log.operator || null
         };
-        const { error: err2 } = await supabase.from('logs').upsert(snakeRow);
+        const { error: err2 } = await supabase.from('logs').upsert(camelRow);
         if (err2) {
-          // Try inventory_logs table
           await supabase.from('inventory_logs').upsert(snakeRow);
         }
       }
