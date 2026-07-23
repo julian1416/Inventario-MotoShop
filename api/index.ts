@@ -12,8 +12,8 @@ import {
   deleteProductAsync, 
   getLogsAsync, 
   saveLogAsync 
-} from './server-db.js';
-import { Product, InventoryLog, ProductCategory } from './src/types.js';
+} from './server-db';
+import { Product, InventoryLog, ProductCategory } from '../src/types'
 
 // Setup Express
 const app = express();
