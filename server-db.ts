@@ -6,10 +6,16 @@
 import fs from 'fs';
 import path from 'path';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Product, InventoryLog } from './src/types';
+import { Product, InventoryLog } from './src/types.js';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+// Use /tmp for serverless/Vercel environments where process.cwd() is read-only
+const DATA_DIR = process.env.VERCEL || process.env.NODE_ENV === 'production' 
+  ? path.join('/tmp', 'data') 
+  : path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+
+// In-memory cache fallback for read-only filesystem environments
+let inMemoryDb: { products: Product[]; logs: InventoryLog[] } | null = null;
 
 // Initialize Supabase Client if credentials exist
 let supabase: SupabaseClient | null = null;
@@ -33,40 +39,51 @@ function ensureLocalDb() {
     }
     
     if (!fs.existsSync(DB_FILE)) {
-      const initialData = {
+      const initialData = inMemoryDb || {
         products: getStarterProducts(),
         logs: getStarterLogs()
       };
       fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
     }
   } catch (e) {
-    console.warn("Read-only filesystem or disk access error:", e);
+    // Gracefully handle read-only filesystems in cloud environments (Vercel, etc.)
   }
 }
 
-// Synchronous local getDb (fallback)
+// Synchronous local getDb (in-memory + disk fallback)
 export function getDb(): { products: Product[]; logs: InventoryLog[] } {
-  ensureLocalDb();
+  if (inMemoryDb) {
+    return inMemoryDb;
+  }
+
   try {
+    ensureLocalDb();
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
-      return JSON.parse(raw);
+      inMemoryDb = JSON.parse(raw);
+      return inMemoryDb!;
     }
   } catch (error) {
-    console.error("Error reading database file, returning empty state:", error);
+    console.warn("Could not read disk DB, initializing in-memory state:", error);
   }
-  return { products: [], logs: [] };
+
+  inMemoryDb = {
+    products: getStarterProducts(),
+    logs: getStarterLogs()
+  };
+  return inMemoryDb;
 }
 
-// Synchronous local saveDb (fallback)
+// Synchronous local saveDb (in-memory + disk fallback)
 export function saveDb(data: { products: Product[]; logs: InventoryLog[] }) {
+  inMemoryDb = data;
   try {
     ensureLocalDb();
     if (fs.existsSync(DATA_DIR)) {
       fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
     }
   } catch (e) {
-    console.warn("Could not save to local disk:", e);
+    // Swallowed safely if filesystem is read-only
   }
 }
 
