@@ -1,25 +1,32 @@
 import express from 'express';
 import { 
   getProductsAsync, 
-  saveProductAsync, 
-  deleteProductAsync, 
-  getLogsAsync, 
-  saveLogAsync 
-}from './server-db.js';
+  getLogsAsync 
+} from './server-db.js'; // IMPORTANTE el .js
 
 const app = express();
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json());
 
+// Ruta para productos
 app.get('/api/products', async (req, res) => {
-  try { res.json(await getProductsAsync()); } 
-  catch (err) { res.status(500).json({ error: err }); }
+  try {
+    const products = await getProductsAsync();
+    res.json(products);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno en productos' });
+  }
 });
 
+// Ruta para logs
 app.get('/api/logs', async (req, res) => {
-  try { res.json(await getLogsAsync()); } 
-  catch (err) { res.status(500).json({ error: err }); }
+  try {
+    const logs = await getLogsAsync();
+    res.json(logs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno en logs' });
+  }
 });
-
-// Agrega aquí los app.post para saveProduct y saveLog si los necesitas
 
 export default app;
