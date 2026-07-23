@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Product, InventoryLog } from '../src/types'; // Importación local ahora que lo movimos
+import { Product, InventoryLog } from '../src/types.js'; // Importación local ahora que lo movimos
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;

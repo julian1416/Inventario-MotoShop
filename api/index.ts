@@ -5,7 +5,7 @@ import {
   deleteProductAsync, 
   getLogsAsync, 
   saveLogAsync 
-} from './server-db';
+}from './server-db.js';
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
