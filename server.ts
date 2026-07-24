@@ -189,9 +189,12 @@ app.post('/api/products', async (req, res) => {
     }
 
     res.status(201).json(newProduct);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating product:", error);
-    res.status(500).json({ error: "Error al registrar el producto" });
+    res.status(500).json({ 
+      error: "Error al guardar producto", 
+      details: error?.message || String(error)
+    });
   }
 });
 
@@ -241,9 +244,12 @@ app.put('/api/products/:id', async (req, res) => {
 
     await saveProductAsync(updatedProduct);
     res.json(updatedProduct);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating product:", error);
-    res.status(500).json({ error: "Error al actualizar el producto" });
+    res.status(500).json({ 
+      error: "Error al actualizar producto", 
+      details: error?.message || String(error)
+    });
   }
 });
 
@@ -365,9 +371,12 @@ app.post('/api/inventory/transaction', async (req, res) => {
       product,
       log
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error processing transaction:", error);
-    res.status(500).json({ error: "Error al registrar movimiento de inventario" });
+    res.status(500).json({ 
+      error: "Error al registrar movimiento de inventario", 
+      details: error?.message || String(error)
+    });
   }
 });
 

@@ -238,25 +238,27 @@ export async function saveProductAsync(product: Product): Promise<void> {
     }
   }
 
-  // Update in-memory state
-  const idx = inMemoryProducts.findIndex(p => p.id === product.id);
-  if (idx >= 0) {
-    inMemoryProducts[idx] = product;
+  // Update in-memory state FIRST so local reads work instantly
+  const existingIdx = inMemoryProducts.findIndex(p => p.id === product.id);
+  if (existingIdx >= 0) {
+    inMemoryProducts[existingIdx] = product;
   } else {
     inMemoryProducts.push(product);
   }
 
+  // Save to Supabase 'products' table WITH ERROR PROPAGATION & CONFIRMATION
   if (supabase) {
     try {
-      // Primary: snake_case for standard PostgreSQL / Supabase schemas
-      const snakeRow = {
+      // Standard snake_case row matching Supabase PostgreSQL schema
+      const productRow: Record<string, any> = {
         id: product.id,
         name: product.name,
         brand: product.brand,
         category: product.category,
         type: product.type || null,
         measure: product.measure || null,
-        has_variants: product.hasVariants,
+        description: (product as any).description || null,
+        has_variants: Boolean(product.hasVariants),
         single_quantity: product.singleQuantity ?? null,
         image: product.image || null,
         thumbnail: product.thumbnail || null,
@@ -265,17 +267,24 @@ export async function saveProductAsync(product: Product): Promise<void> {
         updated_at: product.updatedAt
       };
 
-      const { error: err1 } = await supabase.from('products').upsert(snakeRow);
-      if (err1) {
-        // Secondary fallback: camelCase
-        const camelRow = {
+      const { data, error } = await supabase
+        .from('products')
+        .upsert(productRow)
+        .select();
+
+      if (error) {
+        console.error("Supabase upsert product error:", error);
+
+        // Fallback retry using camelCase names if the table schema uses camelCase
+        const camelRow: Record<string, any> = {
           id: product.id,
           name: product.name,
           brand: product.brand,
           category: product.category,
           type: product.type || null,
           measure: product.measure || null,
-          hasVariants: product.hasVariants,
+          description: (product as any).description || null,
+          hasVariants: Boolean(product.hasVariants),
           singleQuantity: product.singleQuantity ?? null,
           image: product.image || null,
           thumbnail: product.thumbnail || null,
@@ -283,13 +292,28 @@ export async function saveProductAsync(product: Product): Promise<void> {
           createdAt: product.createdAt,
           updatedAt: product.updatedAt
         };
-        const { error: err2 } = await supabase.from('products').upsert(camelRow);
-        if (err2) {
-          console.error("Supabase upsert product error:", err2.message);
+
+        const { error: camelErr } = await supabase
+          .from('products')
+          .upsert(camelRow)
+          .select();
+
+        if (camelErr) {
+          // Rollback in-memory update if DB persistence failed completely
+          if (existingIdx === -1) {
+            inMemoryProducts = inMemoryProducts.filter(p => p.id !== product.id);
+          }
+
+          const detailMsg = error.message 
+            ? `${error.message}${error.details ? ` (${error.details})` : ''}${error.hint ? ` [Hint: ${error.hint}]` : ''}`
+            : JSON.stringify(error);
+
+          throw new Error(`Error en tabla 'products': ${detailMsg}`);
         }
       }
     } catch (err: any) {
-      console.error("Supabase save product exception:", err.message);
+      console.error("Supabase saveProductAsync exception:", err.message || err);
+      throw err;
     }
   }
 }
