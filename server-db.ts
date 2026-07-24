@@ -10,10 +10,17 @@ import { Product, InventoryLog } from './src/types.js';
 let inMemoryProducts: Product[] = getStarterProducts();
 let inMemoryLogs: InventoryLog[] = getStarterLogs();
 
+// Clean environment variable values (strip surrounding quotes or extra spaces)
+function cleanEnv(val?: string): string | undefined {
+  if (!val) return undefined;
+  const cleaned = val.trim().replace(/^["']|["']$/g, '');
+  return cleaned || undefined;
+}
+
 // Initialize Supabase Client if credentials exist
 let supabase: SupabaseClient | null = null;
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = cleanEnv(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+const supabaseKey = cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY);
 
 if (supabaseUrl && supabaseKey && supabaseUrl !== 'MY_SUPABASE_URL') {
   try {
