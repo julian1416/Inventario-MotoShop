@@ -26,6 +26,74 @@ import ProductDetails from './components/ProductDetails';
 import RecentLogs from './components/RecentLogs';
 import AddProductModal from './components/AddProductModal';
 
+// Helper function to convert raw objects (whether camelCase or snake_case) into standardized Product
+function normalizeProduct(p: any): Product {
+  if (!p) return p;
+  
+  const rawHasVars = p.hasVariants ?? p.has_variants ?? p.hasvariants;
+  let hasVariants = false;
+  if (typeof rawHasVars === 'boolean') hasVariants = rawHasVars;
+  else if (typeof rawHasVars === 'number') hasVariants = rawHasVars !== 0;
+  else if (typeof rawHasVars === 'string') {
+    const s = rawHasVars.trim().toLowerCase();
+    hasVariants = s === 'true' || s === '1' || s === 't';
+  }
+
+  let variants = p.variants;
+  if (typeof variants === 'string') {
+    try {
+      variants = JSON.parse(variants);
+    } catch (e) {
+      variants = undefined;
+    }
+  }
+  if (!Array.isArray(variants)) {
+    variants = undefined;
+  }
+
+  const rawQty = p.singleQuantity ?? p.single_quantity ?? p.singlequantity;
+  const singleQuantity = (rawQty !== undefined && rawQty !== null) ? Number(rawQty) : undefined;
+
+  return {
+    id: String(p.id ?? ''),
+    name: String(p.name || p.nombre || ''),
+    brand: String(p.brand || p.marca || ''),
+    category: p.category || p.categoria || 'Otros',
+    type: p.type || p.tipo || undefined,
+    measure: p.measure || p.medida || undefined,
+    hasVariants,
+    singleQuantity,
+    image: p.image || p.imagen || undefined,
+    thumbnail: p.thumbnail || p.miniatura || undefined,
+    variants,
+    createdAt: p.createdAt || p.created_at || new Date().toISOString(),
+    updatedAt: p.updatedAt || p.updated_at || new Date().toISOString()
+  };
+}
+
+// Helper function to normalize logs
+function normalizeLog(l: any): InventoryLog {
+  if (!l) return l;
+  const rawPrev = l.previousQuantity ?? l.previous_quantity ?? 0;
+  const rawNew = l.newQuantity ?? l.new_quantity ?? 0;
+
+  return {
+    id: String(l.id ?? ''),
+    productId: String(l.productId || l.product_id || ''),
+    productName: String(l.productName || l.product_name || ''),
+    brand: String(l.brand || l.marca || ''),
+    category: l.category || l.categoria || 'Otros',
+    type: (l.type === 'exit' || l.type === 'salida') ? 'exit' : 'entry',
+    variantId: l.variantId || l.variant_id || undefined,
+    size: l.size || undefined,
+    quantity: Number(l.quantity || 0),
+    previousQuantity: Number(rawPrev),
+    newQuantity: Number(rawNew),
+    timestamp: l.timestamp || l.created_at || new Date().toISOString(),
+    operator: l.operator || l.operador || 'Sistema'
+  };
+}
+
 export default function App() {
   // Database States
   const [products, setProducts] = useState<Product[]>([]);
@@ -61,8 +129,11 @@ export default function App() {
       const productsData = await productsRes.json();
       const logsData = await logsRes.json();
 
-      setProducts(productsData);
-      setLogs(logsData);
+      const normalizedProducts = (Array.isArray(productsData) ? productsData : []).map(normalizeProduct);
+      const normalizedLogs = (Array.isArray(logsData) ? logsData : []).map(normalizeLog);
+
+      setProducts(normalizedProducts);
+      setLogs(normalizedLogs);
     } catch (err: any) {
       console.error(err);
       setErrorMsg('Error al conectar con el servidor. Verifica tu conexión.');
@@ -77,31 +148,37 @@ export default function App() {
 
   // Sync details if the active detail view product was modified during transaction
   const handleTransactionSuccess = (updatedProduct: Product) => {
+    const norm = normalizeProduct(updatedProduct);
     // Update local products list
-    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    setProducts(prev => prev.map(p => p.id === norm.id ? norm : p));
     // Update currently selected product state to update detail sheet
-    setSelectedProduct(updatedProduct);
+    setSelectedProduct(norm);
     // Refresh transaction logs asynchronously
     fetch('/api/logs')
       .then(res => res.json())
-      .then(data => setLogs(data))
+      .then(data => setLogs((Array.isArray(data) ? data : []).map(normalizeLog)))
       .catch(err => console.error("Error refreshing logs:", err));
   };
 
   const handleProductAdded = (newProduct: Product) => {
-    // Refresh full state
+    // Reset filters so newly added product is immediately visible
+    setSearchQuery('');
+    setSelectedCategory('Todos');
+    setStockFilter('todos');
+    // Refresh full state from database
     fetchData();
   };
 
   // Filter products based on search query, category, and stock status
   const filteredProducts = products.filter(p => {
+    if (!p) return false;
     // 1. Search Query
     const q = searchQuery.toLowerCase().trim();
     let matchesSearch = true;
     if (q) {
-      const nameMatch = p.name.toLowerCase().includes(q);
-      const brandMatch = p.brand.toLowerCase().includes(q);
-      const catMatch = p.category.toLowerCase().includes(q);
+      const nameMatch = (p.name || '').toLowerCase().includes(q);
+      const brandMatch = (p.brand || '').toLowerCase().includes(q);
+      const catMatch = (p.category || '').toLowerCase().includes(q);
       const typeMatch = p.type ? p.type.toLowerCase().includes(q) : false;
       const measureMatch = p.measure ? p.measure.toLowerCase().includes(q) : false;
       matchesSearch = nameMatch || brandMatch || catMatch || typeMatch || measureMatch;
@@ -113,7 +190,7 @@ export default function App() {
     // 3. Stock Level Filter
     const totalStock = !p.hasVariants 
       ? (p.singleQuantity || 0) 
-      : (p.variants || []).reduce((sum, v) => sum + v.sizes.reduce((acc, curr) => acc + curr.quantity, 0), 0);
+      : (p.variants || []).reduce((sum, v) => sum + (v.sizes || []).reduce((acc, curr) => acc + (curr.quantity || 0), 0), 0);
       
     let matchesStock = true;
     if (stockFilter === 'disponibles') {

@@ -97,6 +97,28 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
     }
   };
 
+  // Helper function to upload image to Supabase Storage bucket 'inventory-photos' via backend API
+  const uploadToStorage = async (base64Data: string, filenamePrefix: string): Promise<string> => {
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: base64Data,
+          filename: `${filenamePrefix}-${Date.now()}.jpg`,
+          folder: 'inventory-photos'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        return data.url;
+      }
+    } catch (err) {
+      console.warn("Storage upload API error, falling back to base64:", err);
+    }
+    return base64Data;
+  };
+
   // Process single product image upload
   const handleSingleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,8 +127,13 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
     try {
       setErrorMsg('');
       const compressed = await compressAndResizeImage(file);
-      setSingleImage(compressed.medium);
-      setSingleThumbnail(compressed.thumbnail);
+      
+      // Upload compressed medium image and thumbnail to Supabase Storage
+      const mediumUrl = await uploadToStorage(compressed.medium, 'product-main');
+      const thumbUrl = await uploadToStorage(compressed.thumbnail, 'product-thumb');
+
+      setSingleImage(mediumUrl);
+      setSingleThumbnail(thumbUrl);
     } catch (err) {
       console.error(err);
       setErrorMsg('Error al procesar la imagen. Intenta con otra.');
@@ -121,9 +148,14 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
     try {
       setErrorMsg('');
       const compressed = await compressAndResizeImage(file);
+
+      // Upload compressed variant images to Supabase Storage
+      const mediumUrl = await uploadToStorage(compressed.medium, `variant-${variantIdx}-main`);
+      const thumbUrl = await uploadToStorage(compressed.thumbnail, `variant-${variantIdx}-thumb`);
+
       const updatedVariants = [...variants];
-      updatedVariants[variantIdx].image = compressed.medium;
-      updatedVariants[variantIdx].thumbnail = compressed.thumbnail;
+      updatedVariants[variantIdx].image = mediumUrl;
+      updatedVariants[variantIdx].thumbnail = thumbUrl;
       setVariants(updatedVariants);
     } catch (err) {
       console.error(err);

@@ -10,7 +10,8 @@ import {
   saveProductAsync, 
   deleteProductAsync, 
   getLogsAsync, 
-  saveLogAsync 
+  saveLogAsync,
+  uploadImageToSupabaseStorage
 } from './server-db.js';
 import { Product, InventoryLog, ProductCategory } from './src/types.js';
 
@@ -27,6 +28,32 @@ app.use(express.urlencoded({ limit: '15mb', extended: true }));
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// POST Upload Image to Supabase Storage ('inventory-photos' bucket)
+app.post('/api/upload', async (req, res) => {
+  try {
+    const { image, filename, folder } = req.body as { image: string; filename?: string; folder?: string };
+
+    if (!image) {
+      return res.status(400).json({ error: "La imagen es requerida en base64" });
+    }
+
+    const publicUrl = await uploadImageToSupabaseStorage(image, filename, folder || 'products');
+    if (!publicUrl) {
+      // Return fallback response if Supabase storage is not configured or fails
+      return res.status(200).json({ 
+        success: false, 
+        url: image, // Fallback to original base64
+        message: "No se pudo subir a Supabase Storage, utilizando almacenamiento local." 
+      });
+    }
+
+    res.json({ success: true, url: publicUrl });
+  } catch (error: any) {
+    console.error("Error en endpoint /api/upload:", error);
+    res.status(500).json({ error: "Error interno al subir la imagen" });
+  }
 });
 
 // GET all products (with optional search filter)

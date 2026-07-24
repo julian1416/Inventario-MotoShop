@@ -45,41 +45,150 @@ export function saveDb(data: { products: Product[]; logs: InventoryLog[] }) {
   inMemoryLogs = data.logs;
 }
 
-// Map database row to Product (handles both snake_case from SQL and camelCase)
+/**
+ * Uploads a base64 image or Buffer to the public Supabase Storage bucket 'inventory-photos'.
+ * Returns the public URL of the uploaded image, or null if upload failed/unavailable.
+ */
+export async function uploadImageToSupabaseStorage(
+  imageInput: string | Buffer,
+  filename?: string,
+  folder: string = 'products'
+): Promise<string | null> {
+  if (!supabase) {
+    console.warn("Supabase client not available for storage upload");
+    return null;
+  }
+
+  try {
+    const bucketName = 'inventory-photos';
+    let buffer: Buffer;
+    let contentType = 'image/jpeg';
+    let ext = 'jpg';
+
+    if (typeof imageInput === 'string') {
+      // Check if it's already an http/https public URL
+      if (imageInput.startsWith('http://') || imageInput.startsWith('https://')) {
+        return imageInput;
+      }
+
+      // Handle base64 Data URL
+      const matches = imageInput.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+      if (matches) {
+        contentType = matches[1];
+        ext = contentType.split('/')[1] || 'jpg';
+        if (ext === 'jpeg') ext = 'jpg';
+        buffer = Buffer.from(matches[2], 'base64');
+      } else {
+        // Plain base64 string
+        buffer = Buffer.from(imageInput, 'base64');
+      }
+    } else {
+      buffer = imageInput;
+    }
+
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const cleanFilename = filename 
+      ? filename.replace(/[^a-zA-Z0-9._-]/g, '_')
+      : `photo-${uniqueId}.${ext}`;
+
+    const filePath = `${folder}/${cleanFilename}`;
+
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, buffer, {
+        contentType,
+        upsert: true
+      });
+
+    if (error) {
+      console.error("Supabase Storage upload error:", error.message);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  } catch (err: any) {
+    console.error("Exception uploading image to Supabase Storage:", err.message);
+    return null;
+  }
+}
+
+// Helper to strictly parse boolean values from database rows
+function parseBooleanValue(val: any): boolean {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'number') return val !== 0;
+  if (typeof val === 'string') {
+    const s = val.trim().toLowerCase();
+    return s === 'true' || s === '1' || s === 't';
+  }
+  return false;
+}
+
+// Map database row to Product (handles snake_case from SQL and camelCase)
 function mapProductFromRow(row: any): Product {
+  if (!row) return row;
+
+  let variants = row.variants;
+  if (typeof variants === 'string') {
+    try {
+      variants = JSON.parse(variants);
+    } catch (e) {
+      variants = undefined;
+    }
+  }
+  if (!Array.isArray(variants)) {
+    variants = undefined;
+  }
+
+  const rawHasVars = row.hasVariants ?? row.has_variants ?? row.hasvariants;
+  const hasVariants = parseBooleanValue(rawHasVars);
+
+  const rawSingleQty = row.singleQuantity ?? row.single_quantity ?? row.singlequantity;
+  const singleQuantity = (rawSingleQty !== undefined && rawSingleQty !== null) 
+    ? Number(rawSingleQty) 
+    : undefined;
+
   return {
-    id: String(row.id),
-    name: row.name,
-    brand: row.brand,
-    category: row.category,
-    type: row.type || undefined,
-    measure: row.measure || undefined,
-    hasVariants: row.hasVariants ?? row.has_variants ?? false,
-    singleQuantity: row.singleQuantity ?? row.single_quantity ?? undefined,
-    image: row.image || undefined,
-    thumbnail: row.thumbnail || undefined,
-    variants: typeof row.variants === 'string' ? JSON.parse(row.variants) : (row.variants || undefined),
-    createdAt: row.createdAt || row.created_at || new Date().toISOString(),
-    updatedAt: row.updatedAt || row.updated_at || new Date().toISOString()
+    id: String(row.id ?? ''),
+    name: String(row.name || row.nombre || ''),
+    brand: String(row.brand || row.marca || ''),
+    category: row.category || row.categoria || 'Otros',
+    type: row.type || row.tipo || undefined,
+    measure: row.measure || row.medida || undefined,
+    hasVariants,
+    singleQuantity,
+    image: row.image || row.imagen || undefined,
+    thumbnail: row.thumbnail || row.miniatura || undefined,
+    variants,
+    createdAt: row.createdAt || row.created_at || row.createdat || new Date().toISOString(),
+    updatedAt: row.updatedAt || row.updated_at || row.updatedat || new Date().toISOString()
   };
 }
 
 // Map database row to InventoryLog (handles both snake_case from SQL and camelCase)
 function mapLogFromRow(row: any): InventoryLog {
+  if (!row) return row;
+
+  const rawPrev = row.previousQuantity ?? row.previous_quantity ?? row.previousquantity ?? 0;
+  const rawNew = row.newQuantity ?? row.new_quantity ?? row.newquantity ?? 0;
+
   return {
-    id: String(row.id),
-    productId: String(row.productId || row.product_id),
-    productName: row.productName || row.product_name,
-    brand: row.brand,
-    category: row.category,
-    type: row.type,
-    variantId: row.variantId || row.variant_id || undefined,
+    id: String(row.id ?? ''),
+    productId: String(row.productId || row.product_id || row.productid || ''),
+    productName: String(row.productName || row.product_name || row.productname || ''),
+    brand: String(row.brand || row.marca || ''),
+    category: row.category || row.categoria || 'Otros',
+    type: (row.type === 'exit' || row.type === 'salida') ? 'exit' : 'entry',
+    variantId: row.variantId || row.variant_id || row.variantid || undefined,
     size: row.size || undefined,
-    quantity: Number(row.quantity),
-    previousQuantity: Number(row.previousQuantity ?? row.previous_quantity ?? 0),
-    newQuantity: Number(row.newQuantity ?? row.new_quantity ?? 0),
-    timestamp: row.timestamp || row.created_at || row.timestamp || new Date().toISOString(),
-    operator: row.operator
+    quantity: Number(row.quantity || 0),
+    previousQuantity: Number(rawPrev),
+    newQuantity: Number(rawNew),
+    timestamp: row.timestamp || row.created_at || row.createdat || new Date().toISOString(),
+    operator: row.operator || row.operador || 'Sistema'
   };
 }
 
@@ -100,6 +209,35 @@ export async function getProductsAsync(): Promise<Product[]> {
 }
 
 export async function saveProductAsync(product: Product): Promise<void> {
+  // Convert any base64 images to Supabase Storage public URLs if Supabase is connected
+  if (supabase) {
+    try {
+      if (product.image && product.image.startsWith('data:')) {
+        const uploadedUrl = await uploadImageToSupabaseStorage(product.image, `${product.id}-main.jpg`);
+        if (uploadedUrl) product.image = uploadedUrl;
+      }
+      if (product.thumbnail && product.thumbnail.startsWith('data:')) {
+        const uploadedUrl = await uploadImageToSupabaseStorage(product.thumbnail, `${product.id}-thumb.jpg`);
+        if (uploadedUrl) product.thumbnail = uploadedUrl;
+      }
+      if (product.hasVariants && product.variants) {
+        for (let i = 0; i < product.variants.length; i++) {
+          const v = product.variants[i];
+          if (v.image && v.image.startsWith('data:')) {
+            const url = await uploadImageToSupabaseStorage(v.image, `${product.id}-v${i}-main.jpg`);
+            if (url) v.image = url;
+          }
+          if (v.thumbnail && v.thumbnail.startsWith('data:')) {
+            const url = await uploadImageToSupabaseStorage(v.thumbnail, `${product.id}-v${i}-thumb.jpg`);
+            if (url) v.thumbnail = url;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("Notice converting base64 images to Supabase Storage:", err.message);
+    }
+  }
+
   // Update in-memory state
   const idx = inMemoryProducts.findIndex(p => p.id === product.id);
   if (idx >= 0) {
