@@ -198,6 +198,17 @@ export async function getProductsAsync(): Promise<Product[]> {
     try {
       const { data, error } = await supabase.from('products').select('*');
       if (!error && data) {
+        // If table was newly created/dropped and is empty, seed initial starter products into Supabase
+        if (data.length === 0 && inMemoryProducts.length > 0) {
+          console.log("La tabla 'products' en Supabase está vacía. Poblando productos iniciales...");
+          for (const prod of inMemoryProducts) {
+            await saveProductAsync(prod).catch(e => console.warn("Aviso al sembrar producto inicial:", e?.message || e));
+          }
+          const { data: seededData, error: seedErr } = await supabase.from('products').select('*');
+          if (!seedErr && seededData && seededData.length > 0) {
+            return seededData.map(mapProductFromRow);
+          }
+        }
         return data.map(mapProductFromRow);
       }
       console.warn("Supabase fetch products notice:", error?.message);
