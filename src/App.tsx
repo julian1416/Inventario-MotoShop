@@ -25,6 +25,8 @@ import ProductCard from './components/ProductCard';
 import ProductDetails from './components/ProductDetails';
 import RecentLogs from './components/RecentLogs';
 import AddProductModal from './components/AddProductModal';
+import QuickOutputModal from './components/QuickOutputModal';
+import { Zap } from 'lucide-react';
 
 // Helper function to convert raw objects (whether camelCase or snake_case) into standardized Product
 function normalizeProduct(p: any): Product {
@@ -53,12 +55,15 @@ function normalizeProduct(p: any): Product {
 
   const rawQty = p.singleQuantity ?? p.single_quantity ?? p.singlequantity;
   const singleQuantity = (rawQty !== undefined && rawQty !== null) ? Number(rawQty) : undefined;
+  const internalCode = p.internalCode || p.internal_code || p.codigo_interno || p.codigointerno || undefined;
 
   return {
     id: String(p.id ?? ''),
+    internalCode,
     name: String(p.name || p.nombre || ''),
     brand: String(p.brand || p.marca || ''),
     category: p.category || p.categoria || 'Otros',
+    price: p.price ?? p.precio ?? undefined,
     type: p.type || p.tipo || undefined,
     measure: p.measure || p.medida || undefined,
     hasVariants,
@@ -76,10 +81,12 @@ function normalizeLog(l: any): InventoryLog {
   if (!l) return l;
   const rawPrev = l.previousQuantity ?? l.previous_quantity ?? 0;
   const rawNew = l.newQuantity ?? l.new_quantity ?? 0;
+  const internalCode = l.internalCode || l.internal_code || l.codigo_interno || l.codigointerno || undefined;
 
   return {
     id: String(l.id ?? ''),
     productId: String(l.productId || l.product_id || ''),
+    internalCode,
     productName: String(l.productName || l.product_name || ''),
     brand: String(l.brand || l.marca || ''),
     category: l.category || l.categoria || 'Otros',
@@ -106,6 +113,7 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<'inventario' | 'bitacora'>('inventario');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showQuickOutputModal, setShowQuickOutputModal] = useState<boolean>(false);
 
   // Advanced Quick Filters
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Todos'>('Todos');
@@ -113,8 +121,8 @@ export default function App() {
   const [showFiltersPanel, setShowFiltersPanel] = useState<boolean>(false);
 
   // Synchronize data from server DB
-  const fetchData = async () => {
-    setIsLoading(true);
+  const fetchData = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     setErrorMsg('');
     try {
       const [productsRes, logsRes] = await Promise.all([
@@ -136,14 +144,18 @@ export default function App() {
       setLogs(normalizedLogs);
     } catch (err: any) {
       console.error(err);
-      setErrorMsg('Error al conectar con el servidor. Verifica tu conexión.');
+      if (showLoading) {
+        setErrorMsg('Error al conectar con el servidor. Verifica tu conexión.');
+      }
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, []);
 
   // Sync details if the active detail view product was modified during transaction
@@ -161,12 +173,17 @@ export default function App() {
   };
 
   const handleProductAdded = (newProduct: Product) => {
-    // Reset filters so newly added product is immediately visible
+    const norm = normalizeProduct(newProduct);
+    // 1. Immediately inject new product into local state at top of inventory list
+    setProducts(prev => [norm, ...prev.filter(p => p.id !== norm.id)]);
+    
+    // 2. Reset search and category filters so the new product is immediately visible on screen
     setSearchQuery('');
     setSelectedCategory('Todos');
     setStockFilter('todos');
-    // Refresh full state from database
-    fetchData();
+
+    // 3. Silently sync full state from server/database in background without showing full loading screen
+    fetchData(false);
   };
 
   // Filter products based on search query, category, and stock status
@@ -181,7 +198,9 @@ export default function App() {
       const catMatch = (p.category || '').toLowerCase().includes(q);
       const typeMatch = p.type ? p.type.toLowerCase().includes(q) : false;
       const measureMatch = p.measure ? p.measure.toLowerCase().includes(q) : false;
-      matchesSearch = nameMatch || brandMatch || catMatch || typeMatch || measureMatch;
+      const codeMatch = p.internalCode ? p.internalCode.toLowerCase().includes(q) : false;
+      const variantCodeMatch = p.variants ? p.variants.some(v => v.internalCode && v.internalCode.toLowerCase().includes(q)) : false;
+      matchesSearch = nameMatch || brandMatch || catMatch || typeMatch || measureMatch || codeMatch || variantCodeMatch;
     }
 
     // 2. Category Filter
@@ -219,19 +238,31 @@ export default function App() {
                 <p className="text-[11px] text-slate-400 font-medium">Control de Inventario de Accesorios</p>
               </div>
 
-              {/* Sync Actions */}
-              <div className="flex items-center gap-2">
+              {/* Sync Actions & Salida Rápida */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setShowQuickOutputModal(true)}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-3 py-2.5 rounded-xl shadow-xs flex items-center gap-1.5 active:scale-95 transition-all"
+                  title="Salida rápida por código interno (C001, L001, etc.)"
+                  id="btn-quick-output"
+                >
+                  <Zap className="w-4 h-4 text-orange-400 fill-current" />
+                  <span className="hidden sm:inline">Salida Rápida</span>
+                  <span className="sm:hidden">Salida</span>
+                </button>
+
                 <button 
-                  onClick={fetchData}
-                  className="p-2.5 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors active:rotate-45 duration-300"
+                  onClick={() => fetchData(true)}
+                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors active:rotate-45 duration-300 border border-slate-100"
                   title="Recargar inventario"
                   id="btn-sync"
                 >
-                  <RotateCw className="w-4.5 h-4.5" />
+                  <RotateCw className="w-4 h-4" />
                 </button>
+
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md shadow-orange-500/20 flex items-center gap-1.5 active:scale-95 transition-all"
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs px-3 py-2.5 rounded-xl shadow-md shadow-orange-500/20 flex items-center gap-1 active:scale-95 transition-all"
                   id="btn-add-product"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
@@ -370,7 +401,7 @@ export default function App() {
                     <AlertCircle className="w-8 h-8 text-rose-500 mx-auto" />
                     <p className="text-xs font-bold text-rose-800">{errorMsg}</p>
                     <button 
-                      onClick={fetchData}
+                      onClick={() => fetchData(true)}
                       className="px-3 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold"
                     >
                       Reintentar conexión
@@ -452,8 +483,18 @@ export default function App() {
       {/* 3. Add Product Form Drawer */}
       {showAddModal && (
         <AddProductModal 
+          existingProducts={products}
           onClose={() => setShowAddModal(false)}
           onSuccess={handleProductAdded}
+        />
+      )}
+
+      {/* 4. Quick Output Modal by Internal Code */}
+      {showQuickOutputModal && (
+        <QuickOutputModal
+          products={products}
+          onClose={() => setShowQuickOutputModal(false)}
+          onTransactionSuccess={() => fetchData(false)}
         />
       )}
     </div>

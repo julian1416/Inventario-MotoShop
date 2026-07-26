@@ -26,6 +26,7 @@ export interface SizeStock {
 
 export interface VisualVariant {
   id: string; // Unique ID for this visual variant (e.g. design or color)
+  internalCode?: string; // Auto-generated code e.g. "C001" for helmets
   image?: string; // Medium size compressed base64 (e.g. max 500px width) for detail
   thumbnail?: string; // High-performance small thumbnail (e.g. max 100px width) for search list
   sizes: SizeStock[]; // Stock levels per size
@@ -33,11 +34,13 @@ export interface VisualVariant {
 
 export interface Product {
   id: string;
+  internalCode?: string; // Auto-generated code e.g. "L001", "M001" (for non-variant products)
   name: string; // e.g., "ICH 501" or "Maletero 30L"
   brand: string; // e.g., "ICH", "Michelin", "Shaft", "Givi"
   category: ProductCategory;
+  price?: number; // Price in CLP/COP or standard currency
   type?: string; // Specific type (e.g. "Doble propósito", "Pistera" for tires)
-  measure?: string; // Specific measure (e.g. "130/70-17" for tires, or dimensions for other products)
+  measure?: string; // Specific measure
   hasVariants: boolean; // True if it has visual design variants and sizes (e.g., Helmets)
   
   // Fields for products WITHOUT variants
@@ -55,6 +58,7 @@ export interface Product {
 export interface InventoryLog {
   id: string;
   productId: string;
+  internalCode?: string; // Code used in this movement e.g. "C001" or "L001"
   productName: string;
   brand: string;
   category: ProductCategory;

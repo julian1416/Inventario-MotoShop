@@ -21,18 +21,57 @@ import {
 import { compressAndResizeImage } from './ImageCompressor';
 
 interface AddProductModalProps {
+  existingProducts?: Product[];
   onClose: () => void;
   onSuccess: (newProduct: Product) => void;
 }
 
-export default function AddProductModal({ onClose, onSuccess }: AddProductModalProps) {
+export default function AddProductModal({ existingProducts = [], onClose, onSuccess }: AddProductModalProps) {
   // Main form fields
   const [name, setName] = useState<string>('');
   const [brand, setBrand] = useState<string>('');
+  const [customBrand, setCustomBrand] = useState<string>('');
   const [category, setCategory] = useState<ProductCategory>('Cascos Adultos');
+  const [price, setPrice] = useState<string>('');
   const [type, setType] = useState<string>('');
   const [measure, setMeasure] = useState<string>('');
   const [hasVariants, setHasVariants] = useState<boolean>(true);
+
+  // Helper to compute real-time next internal code preview
+  const getPreviewCode = (cat: ProductCategory, offset = 0) => {
+    let prefix = 'A';
+    if (cat === 'Cascos Adultos' || cat === 'Cascos Niños') prefix = 'C';
+    else if (cat === 'Llantas') prefix = 'L';
+    else if (cat === 'Maleteros') prefix = 'M';
+    else if (cat === 'Parrillas') prefix = 'P';
+
+    const regex = new RegExp(`^${prefix}(\\d+)$`, 'i');
+    let maxNum = 0;
+
+    for (const p of existingProducts) {
+      if (p.internalCode) {
+        const match = p.internalCode.match(regex);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      }
+      if (p.variants) {
+        for (const v of p.variants) {
+          if (v.internalCode) {
+            const match = v.internalCode.match(regex);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (!isNaN(num) && num > maxNum) maxNum = num;
+            }
+          }
+        }
+      }
+    }
+
+    const nextNum = maxNum + 1 + offset;
+    return `${prefix}${String(nextNum).padStart(3, '0')}`;
+  };
 
   // Single product image and stock (if no variants)
   const [singleQuantity, setSingleQuantity] = useState<number>(0);
@@ -194,6 +233,17 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
     setVariants(updated);
   };
 
+  // Price formatting handler (e.g., 158000 -> 158.000)
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setPrice('');
+      return;
+    }
+    const formatted = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    setPrice(formatted);
+  };
+
   // Submit product creation
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,19 +253,25 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
       setErrorMsg('El nombre o referencia es obligatorio');
       return;
     }
-    if (!brand.trim()) {
-      setErrorMsg('La marca es obligatoria');
-      return;
-    }
 
     setIsSubmitting(true);
 
+    const cleanPrice = price.trim() ? Number(price.replace(/\./g, '')) : undefined;
+
+    let finalBrand = '';
+    if (category === 'Llantas') {
+      finalBrand = brand === 'Otro' ? customBrand.trim() : brand.trim();
+      if (!finalBrand) finalBrand = 'Michelin';
+    } else {
+      finalBrand = 'N/A';
+    }
+
     const payload: any = {
       name: name.trim(),
-      brand: brand.trim(),
+      brand: finalBrand,
       category,
+      price: cleanPrice,
       type: type.trim() || undefined,
-      measure: measure.trim() || undefined,
       hasVariants,
     };
 
@@ -276,9 +332,9 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
             
             {/* Category selection */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                <Tag className="w-3.5 h-3.5" />
-                Categoría del Producto
+              <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                <Tag className="w-3.5 h-3.5 text-orange-500" />
+                Categoría del Producto *
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -291,9 +347,9 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
                     key={cat}
                     type="button"
                     onClick={() => handleCategoryChange(cat as ProductCategory)}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold text-left transition-colors ${
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold text-left transition-all ${
                       category === cat
-                        ? 'border-orange-500 bg-orange-50 text-orange-850'
+                        ? 'border-orange-500 bg-orange-50 text-orange-900 font-extrabold shadow-xs'
                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                     }`}
                   >
@@ -301,61 +357,121 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
                   </button>
                 ))}
               </div>
+
+              {/* Automatic Code Prefix & Real-time Preview */}
+              <div className="bg-slate-900 text-white p-3.5 rounded-2xl text-xs font-mono flex items-center justify-between shadow-sm border border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="bg-orange-500 text-white px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                    Código Generado
+                  </span>
+                  <span className="text-orange-400 font-extrabold text-sm tracking-wider">
+                    {hasVariants 
+                      ? `[ ${getPreviewCode(category, 0)} ] (+1 por diseño)` 
+                      : `[ ${getPreviewCode(category, 0)} ]`
+                    }
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-sans font-medium">Asignación automática</span>
+              </div>
             </div>
 
             {/* Basic fields */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500">Referencia / Nombre *</label>
+                <label className="text-xs font-bold text-slate-600">
+                  {category === 'Llantas' ? 'Referencia / Medida *' : 'Referencia / Nombre *'}
+                </label>
                 <input
                   type="text"
-                  placeholder="Ej: ICH 501, E300N2"
+                  placeholder={category === 'Llantas' ? 'Ej: 130/70-17, 90/90-18, 2.75-18' : 'Ej: ICH 501, E300N2'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
                   required
                 />
               </div>
 
+              {/* Marca field - ONLY for Llantas */}
+              {category === 'Llantas' && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-600">
+                      Marca de la Llanta *
+                    </label>
+                    <span className="text-[10px] text-orange-600 font-extrabold bg-orange-50 px-2 py-0.5 rounded">
+                      Requerida para llantas
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <select
+                      value={brand}
+                      onChange={(e) => {
+                        setBrand(e.target.value);
+                        if (e.target.value !== 'Otro') setCustomBrand('');
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none"
+                      required
+                    >
+                      <option value="">-- Seleccionar Marca de Llanta --</option>
+                      <option value="Michelin">Michelin</option>
+                      <option value="KTO">KTO</option>
+                      <option value="Kenda">Kenda</option>
+                      <option value="Rinova">Rinova</option>
+                      <option value="Pirelli">Pirelli</option>
+                      <option value="Metzeler">Metzeler</option>
+                      <option value="Dunlop">Dunlop</option>
+                      <option value="Continental">Continental</option>
+                      <option value="Maxxis">Maxxis</option>
+                      <option value="IRC">IRC</option>
+                      <option value="Otro">Otra Marca / Digitar manualmente...</option>
+                    </select>
+
+                    {(brand === 'Otro' || (brand && !['Michelin','KTO','Kenda','Rinova','Pirelli','Metzeler','Dunlop','Continental','Maxxis','IRC',''].includes(brand))) && (
+                      <input
+                        type="text"
+                        placeholder="Escribe la marca de la llanta..."
+                        value={customBrand}
+                        onChange={(e) => setCustomBrand(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-medium focus:ring-2 focus:ring-orange-500 outline-none"
+                        required
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Price field */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500">Marca *</label>
-                <input
-                  type="text"
-                  placeholder="Ej: ICH, Shaft, Givi"
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                  required
-                />
+                <label className="text-xs font-bold text-slate-600">Precio de Venta ($)</label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-slate-400 font-bold text-sm">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ej: 158.000"
+                    value={price}
+                    onChange={handlePriceChange}
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Conditional fields for tires */}
+            {/* Conditional fields for Llantas */}
             {category === 'Llantas' && (
-              <div className="grid grid-cols-2 gap-3 bg-orange-50/40 p-3.5 rounded-xl border border-orange-100/50">
+              <div className="space-y-3 bg-orange-50/50 p-3.5 rounded-2xl border border-orange-100">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-orange-800">Medida de Llanta</label>
-                  <input
-                    type="text"
-                    placeholder="Ej: 130/70-17"
-                    value={measure}
-                    onChange={(e) => setMeasure(e.target.value)}
-                    className="w-full bg-white border border-orange-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-orange-800">Tipo de Llanta</label>
+                  <label className="text-xs font-bold text-orange-900">Tipo de Llanta</label>
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value)}
-                    className="w-full bg-white border border-orange-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-orange-500 outline-none"
+                    className="w-full bg-white border border-orange-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none"
                   >
-                    <option value="">-- Seleccionar --</option>
+                    <option value="">-- Seleccionar Tipo de Llanta --</option>
                     <option value="Doble propósito">Doble propósito</option>
                     <option value="Pistera">Pistera</option>
-                    <option value="En tacos">En tacos</option>
-                    <option value="Otro">Otro</option>
+                    <option value="Tacos">Tacos</option>
                   </select>
                 </div>
               </div>
@@ -394,7 +510,14 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
                       </button>
                     )}
 
-                    <h4 className="text-xs font-bold text-slate-800">Diseño #{vIdx + 1}</h4>
+                    <div className="flex justify-between items-center pr-14">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-xs font-bold text-slate-800">Diseño #{vIdx + 1}</h4>
+                        <span className="bg-slate-900 text-orange-400 font-mono text-[11px] font-black px-2 py-0.5 rounded-md border border-slate-800 shadow-2xs">
+                          Código: {getPreviewCode(category, vIdx)}
+                        </span>
+                      </div>
+                    </div>
 
                     {/* Image selector */}
                     <div className="flex items-center gap-4">
@@ -470,10 +593,15 @@ export default function AddProductModal({ onClose, onSuccess }: AddProductModalP
             ) : (
               /* SIMPLE PRODUCT SECTION (Single quantity and image) */
               <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-4">
-                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-slate-500" />
-                  Inventario y Foto del Producto
-                </h3>
+                <div className="flex justify-between items-center flex-wrap gap-2">
+                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-slate-500" />
+                    Inventario y Foto del Producto
+                  </h3>
+                  <span className="bg-slate-900 text-orange-400 font-mono text-xs font-black px-2.5 py-1 rounded-lg border border-slate-800 shadow-2xs">
+                    Código: {getPreviewCode(category, 0)}
+                  </span>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   {/* Image picker */}

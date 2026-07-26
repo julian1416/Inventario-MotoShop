@@ -33,6 +33,7 @@ export default function RecentLogs({ logs }: RecentLogsProps) {
       log.brand.toLowerCase().includes(q) ||
       log.category.toLowerCase().includes(q) ||
       log.operator.toLowerCase().includes(q) ||
+      (log.internalCode && log.internalCode.toLowerCase().includes(q)) ||
       (log.size && log.size.toLowerCase().includes(q))
     );
   });
@@ -106,12 +107,19 @@ export default function RecentLogs({ logs }: RecentLogsProps) {
                     {/* Log Details */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
+                        {log.internalCode && (
+                          <span className="text-[10px] bg-slate-900 text-white font-mono font-black px-2 py-0.5 rounded shadow-2xs">
+                            {log.internalCode}
+                          </span>
+                        )}
                         <h4 className="text-sm font-bold text-slate-800 truncate leading-tight">
                           {log.productName}
                         </h4>
-                        <span className="text-[10px] bg-slate-100 text-slate-600 font-mono font-bold px-1.5 py-0.5 rounded">
-                          {log.brand}
-                        </span>
+                        {log.category === 'Llantas' && log.brand && log.brand !== 'Genérico' && log.brand !== 'N/A' && (
+                          <span className="text-[10px] bg-slate-100 text-slate-600 font-mono font-bold px-1.5 py-0.5 rounded">
+                            {log.brand}
+                          </span>
+                        )}
                       </div>
 
                       {/* Variant metadata */}

@@ -11,7 +11,8 @@ import {
   deleteProductAsync, 
   getLogsAsync, 
   saveLogAsync,
-  uploadImageToSupabaseStorage
+  uploadImageToSupabaseStorage,
+  generateNextInternalCode
 } from './server-db.js';
 import { Product, InventoryLog, ProductCategory } from './src/types.js';
 
@@ -73,8 +74,10 @@ app.get('/api/products', async (req, res) => {
       const matchCategory = p.category.toLowerCase().includes(query);
       const matchType = p.type ? p.type.toLowerCase().includes(query) : false;
       const matchMeasure = p.measure ? p.measure.toLowerCase().includes(query) : false;
+      const matchCode = p.internalCode ? p.internalCode.toLowerCase().includes(query) : false;
+      const matchVariantCode = p.variants ? p.variants.some(v => v.internalCode && v.internalCode.toLowerCase().includes(query)) : false;
       
-      return matchName || matchBrand || matchCategory || matchType || matchMeasure;
+      return matchName || matchBrand || matchCategory || matchType || matchMeasure || matchCode || matchVariantCode;
     });
 
     res.json(filtered.reverse());
@@ -108,6 +111,9 @@ app.post('/api/products', async (req, res) => {
       return res.status(400).json({ error: "Nombre, Marca y Categoría son requeridos" });
     }
 
+    const existingProducts = await getProductsAsync();
+    const existingLogs = await getLogsAsync();
+
     const now = new Date().toISOString();
     const id = `prod-${Date.now()}`;
 
@@ -116,6 +122,7 @@ app.post('/api/products', async (req, res) => {
       name: newProductData.name.trim(),
       brand: newProductData.brand.trim(),
       category: newProductData.category as ProductCategory,
+      price: newProductData.price,
       type: newProductData.type?.trim() || undefined,
       measure: newProductData.measure?.trim() || undefined,
       hasVariants: !!newProductData.hasVariants,
@@ -124,15 +131,20 @@ app.post('/api/products', async (req, res) => {
     };
 
     if (newProduct.hasVariants) {
-      // It's a product with variants (e.g. Helmets)
-      newProduct.variants = (newProductData.variants || []).map((v, idx) => ({
-        id: v.id || `var-${id}-${Date.now()}-${idx}`,
-        image: v.image || undefined,
-        thumbnail: v.thumbnail || undefined,
-        sizes: v.sizes || []
-      }));
+      // It's a product with variants (e.g. Helmets) - Each visual variant gets an internalCode (e.g. C001, C002)
+      newProduct.variants = (newProductData.variants || []).map((v, idx) => {
+        const variantCode = v.internalCode || generateNextInternalCode(newProduct.category, existingProducts, existingLogs);
+        return {
+          id: v.id || `var-${id}-${Date.now()}-${idx}`,
+          internalCode: variantCode,
+          image: v.image || undefined,
+          thumbnail: v.thumbnail || undefined,
+          sizes: v.sizes || []
+        };
+      });
     } else {
-      // Simple product
+      // Simple product gets single internalCode (e.g. L001, M001)
+      newProduct.internalCode = newProductData.internalCode || generateNextInternalCode(newProduct.category, existingProducts, existingLogs);
       newProduct.singleQuantity = Number(newProductData.singleQuantity) || 0;
       newProduct.image = newProductData.image || undefined;
       newProduct.thumbnail = newProductData.thumbnail || undefined;
@@ -148,6 +160,7 @@ app.post('/api/products', async (req, res) => {
       const log: InventoryLog = {
         id: logId,
         productId: id,
+        internalCode: newProduct.internalCode,
         productName: newProduct.name,
         brand: newProduct.brand,
         category: newProduct.category,
@@ -170,7 +183,8 @@ app.post('/api/products', async (req, res) => {
             const log: InventoryLog = {
               id: logId,
               productId: id,
-              productName: `${newProduct.name} (${vIdx + 1})`,
+              internalCode: v.internalCode,
+              productName: `${newProduct.name} (Diseño ${v.internalCode || (vIdx + 1)})`,
               brand: newProduct.brand,
               category: newProduct.category,
               type: 'entry',
@@ -202,6 +216,7 @@ app.post('/api/products', async (req, res) => {
 app.put('/api/products/:id', async (req, res) => {
   try {
     const products = await getProductsAsync();
+    const existingLogs = await getLogsAsync();
     const existingProduct = products.find(p => p.id === req.params.id);
     if (!existingProduct) {
       return res.status(404).json({ error: "Producto no encontrado" });
@@ -215,6 +230,7 @@ app.put('/api/products/:id', async (req, res) => {
       name: updateData.name?.trim() || existingProduct.name,
       brand: updateData.brand?.trim() || existingProduct.brand,
       category: (updateData.category || existingProduct.category) as ProductCategory,
+      price: updateData.price !== undefined ? updateData.price : existingProduct.price,
       type: updateData.type !== undefined ? updateData.type.trim() || undefined : existingProduct.type,
       measure: updateData.measure !== undefined ? updateData.measure.trim() || undefined : existingProduct.measure,
       updatedAt: now,
@@ -222,15 +238,23 @@ app.put('/api/products/:id', async (req, res) => {
 
     if (existingProduct.hasVariants) {
       if (updateData.variants) {
-        // Update variants (allow editing visual variants, adding new ones, etc.)
-        updatedProduct.variants = updateData.variants.map(v => ({
-          id: v.id || `var-${existingProduct.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          image: v.image || undefined,
-          thumbnail: v.thumbnail || undefined,
-          sizes: v.sizes || []
-        }));
+        // Update variants - maintain existing internalCodes or generate new ones for newly added variants
+        updatedProduct.variants = updateData.variants.map((v, idx) => {
+          const oldVar = existingProduct.variants?.find(ov => ov.id === v.id);
+          const vCode = v.internalCode || oldVar?.internalCode || generateNextInternalCode(updatedProduct.category, products, existingLogs);
+          return {
+            id: v.id || `var-${existingProduct.id}-${Date.now()}-${idx}`,
+            internalCode: vCode,
+            image: v.image || oldVar?.image || undefined,
+            thumbnail: v.thumbnail || oldVar?.thumbnail || undefined,
+            sizes: v.sizes || []
+          };
+        });
       }
     } else {
+      if (!updatedProduct.internalCode) {
+        updatedProduct.internalCode = existingProduct.internalCode || generateNextInternalCode(updatedProduct.category, products, existingLogs);
+      }
       if (updateData.singleQuantity !== undefined) {
         updatedProduct.singleQuantity = Number(updateData.singleQuantity);
       }
@@ -295,6 +319,7 @@ app.post('/api/inventory/transaction', async (req, res) => {
     const now = new Date().toISOString();
     let previousQuantity = 0;
     let newQuantity = 0;
+    let transactionCode = product.internalCode;
 
     if (!product.hasVariants) {
       // Simple product stock update
@@ -321,6 +346,8 @@ app.post('/api/inventory/transaction', async (req, res) => {
       if (!variant) {
         return res.status(404).json({ error: "Variante visual no encontrada" });
       }
+
+      transactionCode = variant.internalCode || product.internalCode;
 
       let sizeStockIdx = variant.sizes.findIndex(s => s.size.toUpperCase() === size.toUpperCase());
       if (sizeStockIdx === -1) {
@@ -351,6 +378,7 @@ app.post('/api/inventory/transaction', async (req, res) => {
     const log: InventoryLog = {
       id: logId,
       productId,
+      internalCode: transactionCode,
       productName: product.name,
       brand: product.brand,
       category: product.category,

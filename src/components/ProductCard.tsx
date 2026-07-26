@@ -92,27 +92,58 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
 
       {/* Product Info Block */}
       <div className="min-w-0 flex-1 space-y-1">
-        {/* Category & Brand Header */}
+        {/* Internal Code Tag, Category & Brand Header */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Internal Code Badge */}
+          {product.hasVariants && product.variants ? (
+            <div className="flex gap-1 flex-wrap">
+              {product.variants.map((v, i) => (
+                v.internalCode ? (
+                  <span key={v.id || i} className="text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-mono font-extrabold shadow-3xs">
+                    {v.internalCode}
+                  </span>
+                ) : null
+              ))}
+            </div>
+          ) : product.internalCode ? (
+            <span className="text-[10px] bg-slate-900 text-white px-2 py-0.5 rounded font-mono font-extrabold shadow-3xs">
+              {product.internalCode}
+            </span>
+          ) : null}
+
           <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
             {product.category}
           </span>
-          <span className="text-[10px] text-slate-400 font-mono font-bold">
-            • {product.brand}
-          </span>
+          {product.category === 'Llantas' && product.brand && product.brand !== 'Genérico' && product.brand !== 'N/A' && (
+            <span className="text-[10px] text-slate-400 font-mono font-bold">
+              • {product.brand}
+            </span>
+          )}
         </div>
 
-        {/* Product Name */}
+        {/* Product Name / Referencia */}
         <h3 className="text-sm font-bold text-slate-800 truncate leading-snug">
           {product.name}
         </h3>
 
-        {/* Measure, Tire Type, or Specific Metadata */}
-        {product.measure && (
-          <p className="text-[11px] font-mono font-bold text-orange-600 bg-orange-50/50 px-2 py-0.5 rounded-md inline-block">
-            {product.measure} {product.type ? `(${product.type})` : ''}
-          </p>
-        )}
+        {/* Price & Tire type */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          {product.price !== undefined && product.price > 0 && (
+            <span className="text-[11px] font-extrabold font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+              ${product.price.toLocaleString('es-CO')}
+            </span>
+          )}
+          {product.type && (
+            <span className="text-[10px] font-bold text-orange-800 bg-orange-100 px-2 py-0.5 rounded-md">
+              {product.type}
+            </span>
+          )}
+          {product.measure && (
+            <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+              {product.measure}
+            </span>
+          )}
+        </div>
 
         {/* Helmet Quick-Scan Sizes */}
         {product.hasVariants && activeSizes.length > 0 && (

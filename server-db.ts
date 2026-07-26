@@ -4,7 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Product, InventoryLog } from './src/types.js';
+import { Product, InventoryLog, ProductCategory } from './src/types.js';
 
 // In-memory database fallback (no fs or disk writing for Vercel/Serverless compatibility)
 let inMemoryProducts: Product[] = getStarterProducts();
@@ -116,7 +116,84 @@ export async function uploadImageToSupabaseStorage(
   }
 }
 
-// Helper to strictly parse boolean values from database rows
+// Internal code prefix mapping
+export function getPrefixForCategory(category: ProductCategory): string {
+  switch (category) {
+    case 'Cascos Adultos':
+    case 'Cascos Niños':
+      return 'C';
+    case 'Llantas':
+      return 'L';
+    case 'Maleteros':
+      return 'M';
+    case 'Parrillas':
+      return 'P';
+    case 'Accesorios':
+    case 'Lujos':
+    case 'Otros':
+    default:
+      return 'A';
+  }
+}
+
+// Global high-watermark counter to ensure deleted codes are never reused
+const codeCounters: Record<string, number> = {
+  C: 4,
+  L: 2,
+  M: 1,
+  P: 1,
+  A: 2,
+};
+
+export function generateNextInternalCode(
+  category: ProductCategory, 
+  allProducts: Product[] = inMemoryProducts, 
+  allLogs: InventoryLog[] = inMemoryLogs
+): string {
+  const prefix = getPrefixForCategory(category);
+  const regex = new RegExp(`^${prefix}(\\d+)$`, 'i');
+  
+  let maxNumber = codeCounters[prefix] || 0;
+
+  // Scan existing products
+  for (const p of allProducts) {
+    if (p.internalCode) {
+      const match = p.internalCode.match(regex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNumber) maxNumber = num;
+      }
+    }
+    if (p.variants) {
+      for (const v of p.variants) {
+        if (v.internalCode) {
+          const match = v.internalCode.match(regex);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (!isNaN(num) && num > maxNumber) maxNumber = num;
+          }
+        }
+      }
+    }
+  }
+
+  // Scan existing inventory logs
+  for (const l of allLogs) {
+    if (l.internalCode) {
+      const match = l.internalCode.match(regex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNumber) maxNumber = num;
+      }
+    }
+  }
+
+  const nextNum = maxNumber + 1;
+  codeCounters[prefix] = nextNum;
+
+  const padded = String(nextNum).padStart(3, '0');
+  return `${prefix}${padded}`;
+}
 function parseBooleanValue(val: any): boolean {
   if (typeof val === 'boolean') return val;
   if (typeof val === 'number') return val !== 0;
@@ -151,11 +228,20 @@ function mapProductFromRow(row: any): Product {
     ? Number(rawSingleQty) 
     : undefined;
 
+  const rawPrice = row.price ?? row.precio;
+  const price = (rawPrice !== undefined && rawPrice !== null && rawPrice !== '') 
+    ? Number(rawPrice) 
+    : undefined;
+
+  const internalCode = row.internalCode || row.internal_code || row.codigo_interno || row.codigointerno || undefined;
+
   return {
     id: String(row.id ?? ''),
+    internalCode,
     name: String(row.name || row.nombre || ''),
     brand: String(row.brand || row.marca || ''),
     category: row.category || row.categoria || 'Otros',
+    price,
     type: row.type || row.tipo || undefined,
     measure: row.measure || row.medida || undefined,
     hasVariants,
@@ -174,10 +260,12 @@ function mapLogFromRow(row: any): InventoryLog {
 
   const rawPrev = row.previousQuantity ?? row.previous_quantity ?? row.previousquantity ?? 0;
   const rawNew = row.newQuantity ?? row.new_quantity ?? row.newquantity ?? 0;
+  const internalCode = row.internalCode || row.internal_code || row.codigo_interno || row.codigointerno || undefined;
 
   return {
     id: String(row.id ?? ''),
     productId: String(row.productId || row.product_id || row.productid || ''),
+    internalCode,
     productName: String(row.productName || row.product_name || row.productname || ''),
     brand: String(row.brand || row.marca || ''),
     category: row.category || row.categoria || 'Otros',
@@ -263,9 +351,11 @@ export async function saveProductAsync(product: Product): Promise<void> {
       // Standard snake_case row matching Supabase PostgreSQL schema
       const productRow: Record<string, any> = {
         id: product.id,
+        internal_code: product.internalCode || null,
         name: product.name,
         brand: product.brand,
         category: product.category,
+        price: product.price ?? null,
         type: product.type || null,
         measure: product.measure || null,
         description: (product as any).description || null,
@@ -289,9 +379,12 @@ export async function saveProductAsync(product: Product): Promise<void> {
         // Fallback retry using camelCase names if the table schema uses camelCase
         const camelRow: Record<string, any> = {
           id: product.id,
+          internalCode: product.internalCode || null,
           name: product.name,
           brand: product.brand,
           category: product.category,
+          price: product.price ?? null,
+          precio: product.price ?? null,
           type: product.type || null,
           measure: product.measure || null,
           description: (product as any).description || null,
@@ -372,6 +465,7 @@ export async function saveLogAsync(log: InventoryLog): Promise<void> {
       const snakeRow = {
         id: log.id,
         product_id: log.productId,
+        internal_code: log.internalCode || null,
         product_name: log.productName,
         brand: log.brand,
         category: log.category,
@@ -391,6 +485,7 @@ export async function saveLogAsync(log: InventoryLog): Promise<void> {
         const camelRow = {
           id: log.id,
           productId: log.productId,
+          internalCode: log.internalCode || null,
           productName: log.productName,
           brand: log.brand,
           category: log.category,
@@ -427,7 +522,7 @@ function getStarterProducts(): Product[] {
       variants: [
         {
           id: "var-1-1",
-          // Base64 placeholder values representing distinct visual helmets
+          internalCode: "C001",
           sizes: [
             { size: "S", quantity: 3 },
             { size: "M", quantity: 5 },
@@ -437,6 +532,7 @@ function getStarterProducts(): Product[] {
         },
         {
           id: "var-1-2",
+          internalCode: "C002",
           sizes: [
             { size: "S", quantity: 0 },
             { size: "M", quantity: 4 },
@@ -457,6 +553,7 @@ function getStarterProducts(): Product[] {
       variants: [
         {
           id: "var-kid-1",
+          internalCode: "C003",
           sizes: [
             { size: "XS", quantity: 4 },
             { size: "Talla Única", quantity: 6 }
@@ -468,6 +565,7 @@ function getStarterProducts(): Product[] {
     },
     {
       id: "prod-2",
+      internalCode: "L001",
       name: "Pilot Road 5",
       brand: "Michelin",
       category: "Llantas",
@@ -480,6 +578,7 @@ function getStarterProducts(): Product[] {
     },
     {
       id: "prod-3",
+      internalCode: "L002",
       name: "Anakee Adventure",
       brand: "Michelin",
       category: "Llantas",
@@ -499,6 +598,7 @@ function getStarterProducts(): Product[] {
       variants: [
         {
           id: "var-4-1",
+          internalCode: "C004",
           sizes: [
             { size: "M", quantity: 2 },
             { size: "L", quantity: 5 },
@@ -511,6 +611,7 @@ function getStarterProducts(): Product[] {
     },
     {
       id: "prod-5",
+      internalCode: "M001",
       name: "Maletero E300N2 Monolock",
       brand: "Givi",
       category: "Maleteros",
@@ -521,6 +622,7 @@ function getStarterProducts(): Product[] {
     },
     {
       id: "prod-6",
+      internalCode: "P001",
       name: "Parrilla de Carga Pulsar NS 200",
       brand: "Promecol",
       category: "Parrillas",
@@ -531,6 +633,7 @@ function getStarterProducts(): Product[] {
     },
     {
       id: "prod-7",
+      internalCode: "A001",
       name: "Slider de Motor NS200 Carbono",
       brand: "Fire Parts",
       category: "Lujos",
@@ -541,6 +644,7 @@ function getStarterProducts(): Product[] {
     },
     {
       id: "prod-8",
+      internalCode: "A002",
       name: "Intercomunicador V6 Pro",
       brand: "Vnetphone",
       category: "Accesorios",

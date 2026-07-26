@@ -177,11 +177,27 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess }
         <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 relative overflow-hidden">
           <div className="flex justify-between items-start">
             <div>
-              <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-800 mb-2">
-                {product.category}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-800">
+                  {product.category}
+                </span>
+
+                {/* Internal Code Badge */}
+                <span className="bg-slate-900 text-white font-mono text-xs font-black px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-xs">
+                  <Tag className="w-3.5 h-3.5 text-orange-400" />
+                  {activeVariant?.internalCode || product.internalCode || 'S/N'}
+                </span>
+              </div>
+
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{product.name}</h1>
-              <p className="text-sm font-medium text-slate-500 mt-0.5">Marca: <span className="text-slate-800 font-semibold">{product.brand}</span></p>
+              {product.category === 'Llantas' && product.brand && product.brand !== 'Genérico' && product.brand !== 'N/A' && (
+                <p className="text-sm font-medium text-slate-500 mt-0.5">Marca: <span className="text-slate-800 font-semibold">{product.brand}</span></p>
+              )}
+              {product.price !== undefined && product.price > 0 && (
+                <p className="text-lg font-extrabold text-emerald-600 mt-1">
+                  ${product.price.toLocaleString('es-CO')}
+                </p>
+              )}
             </div>
             {product.measure && (
               <div className="text-right">
@@ -237,7 +253,9 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess }
                       </div>
                     )}
                     <div className="text-left leading-tight">
-                      <p className="text-xs font-bold text-slate-700">Diseño {idx + 1}</p>
+                      <p className="text-xs font-bold text-slate-800">
+                        {v.internalCode ? `[${v.internalCode}]` : `Diseño ${idx + 1}`}
+                      </p>
                       <p className={`text-[10px] font-bold ${totalStock > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
                         {totalStock} disp.
                       </p>
