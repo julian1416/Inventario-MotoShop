@@ -186,6 +186,12 @@ export default function App() {
     fetchData(false);
   };
 
+  const handleProductDeleted = (deletedId: string) => {
+    setProducts(prev => prev.filter(p => p.id !== deletedId));
+    setSelectedProduct(null);
+    fetchData(false);
+  };
+
   // Filter products based on search query, category, and stock status
   const filteredProducts = products.filter(p => {
     if (!p) return false;
@@ -477,6 +483,7 @@ export default function App() {
           product={selectedProduct}
           onBack={() => setSelectedProduct(null)}
           onTransactionSuccess={handleTransactionSuccess}
+          onProductDeleted={handleProductDeleted}
         />
       )}
 

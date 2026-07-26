@@ -18,7 +18,9 @@ import {
   Clock, 
   Package,
   Layers,
-  Sparkles
+  Sparkles,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -26,15 +28,21 @@ interface ProductDetailsProps {
   product: Product;
   onBack: () => void;
   onTransactionSuccess: (updatedProduct: Product) => void;
+  onProductDeleted?: (productId: string) => void;
 }
 
-export default function ProductDetails({ product, onBack, onTransactionSuccess }: ProductDetailsProps) {
+export default function ProductDetails({ product, onBack, onTransactionSuccess, onProductDeleted }: ProductDetailsProps) {
   // Variant states for cascos
   const [selectedVariantIdx, setSelectedVariantIdx] = useState<number>(0);
   const [selectedSize, setSelectedSize] = useState<string>('');
   
   // Modal viewer for images
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
+  // Deletion states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string>('');
 
   // Transaction states
   const [actionType, setActionType] = useState<'entry' | 'exit' | null>(null);
@@ -95,6 +103,43 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess }
   };
 
   const currentStock = getActiveStock();
+
+  // Total product stock across all sizes/variants
+  const getTotalProductStock = (): number => {
+    if (!product.hasVariants) {
+      return product.singleQuantity || 0;
+    }
+    if (!product.variants) return 0;
+    return product.variants.reduce((sum, v) => {
+      return sum + v.sizes.reduce((sizeSum, s) => sizeSum + s.quantity, 0);
+    }, 0);
+  };
+
+  const totalProductStock = getTotalProductStock();
+
+  // Handle product deletion
+  const handleDeleteProduct = async () => {
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al eliminar el producto');
+      }
+      if (onProductDeleted) {
+        onProductDeleted(product.id);
+      } else {
+        onBack();
+      }
+    } catch (err: any) {
+      setDeleteError(err.message || 'Error de conexión al eliminar el producto');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Handle submit transaction
   const handleTransaction = async (e: React.FormEvent) => {
@@ -167,12 +212,44 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess }
           <ArrowLeft className="w-5 h-5" />
           <span className="text-sm">Regresar</span>
         </button>
-        <span className="text-xs font-mono px-2 py-1 bg-slate-100 rounded-full text-slate-500 font-bold">
-          ID: {product.id}
-        </span>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono px-2 py-1 bg-slate-100 rounded-full text-slate-500 font-bold">
+            ID: {product.id}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-1.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors border border-rose-100 flex items-center gap-1 text-xs font-bold"
+            title="Eliminar producto"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Eliminar</span>
+          </button>
+        </div>
       </div>
 
       <div className="p-4 space-y-5">
+        {/* Zero Stock Alert & Delete Banner */}
+        {totalProductStock === 0 && (
+          <div className="bg-rose-50 border border-rose-200/80 rounded-2xl p-4 space-y-2.5 shadow-xs">
+            <div className="flex items-center gap-2 text-rose-900 font-bold text-sm">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              <span>Producto Agotado (0 Unidades Disponibles)</span>
+            </div>
+            <p className="text-xs text-rose-700 leading-relaxed">
+              Este producto no tiene existencias registradas en bodega. Si ya no comercializas esta mercancía, puedes eliminarlo permanentemente.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Eliminar Producto Agotado</span>
+            </button>
+          </div>
+        )}
         {/* Main Product Info Card */}
         <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-100 relative overflow-hidden">
           <div className="flex justify-between items-start">
@@ -565,6 +642,72 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess }
             <p className="text-slate-400 text-xs text-center mt-4 max-w-xs leading-relaxed">
               Toca cualquier parte de la pantalla para regresar a la aplicación.
             </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-100 text-center"
+            >
+              <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto text-rose-600">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900">¿Eliminar este producto?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Estás a punto de eliminar permanentemente <strong className="text-slate-800">"{product.name}"</strong>. Esta acción borrará el registro del inventario y de la base de datos Supabase.
+                </p>
+              </div>
+
+              {deleteError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl flex items-center gap-2 text-left">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteError('');
+                  }}
+                  className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleDeleteProduct}
+                  className="py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <span>Eliminando...</span>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Sí, Eliminar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
