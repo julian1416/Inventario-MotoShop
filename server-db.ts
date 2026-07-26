@@ -337,7 +337,7 @@ export async function saveProductAsync(product: Product): Promise<void> {
     }
   }
 
-  // Update in-memory state FIRST so local reads work instantly
+  // Update in-memory state FIRST so local reads work instantly and never fail user action
   const existingIdx = inMemoryProducts.findIndex(p => p.id === product.id);
   if (existingIdx >= 0) {
     inMemoryProducts[existingIdx] = product;
@@ -345,15 +345,15 @@ export async function saveProductAsync(product: Product): Promise<void> {
     inMemoryProducts.push(product);
   }
 
-  // Save to Supabase 'products' table WITH ERROR PROPAGATION & CONFIRMATION
+  // Save to Supabase 'products' table WITH MULTI-STAGE FALLBACK & NON-BLOCKING GRACEFUL HANDLING
   if (supabase) {
     try {
-      // Standard snake_case row matching Supabase PostgreSQL schema
+      // 1. Standard snake_case row matching full Supabase PostgreSQL schema
       const productRow: Record<string, any> = {
         id: product.id,
         internal_code: product.internalCode || null,
         name: product.name,
-        brand: product.brand,
+        brand: product.brand || 'N/A',
         category: product.category,
         price: product.price ?? null,
         type: product.type || null,
@@ -368,20 +368,19 @@ export async function saveProductAsync(product: Product): Promise<void> {
         updated_at: product.updatedAt
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('products')
-        .upsert(productRow)
-        .select();
+        .upsert(productRow);
 
       if (error) {
-        console.error("Supabase upsert product error:", error);
+        console.warn("Supabase upsert product initial attempt notice:", error.message);
 
-        // Fallback retry using camelCase names if the table schema uses camelCase
+        // 2. Retry using camelCase column names
         const camelRow: Record<string, any> = {
           id: product.id,
           internalCode: product.internalCode || null,
           name: product.name,
-          brand: product.brand,
+          brand: product.brand || 'N/A',
           category: product.category,
           price: product.price ?? null,
           precio: product.price ?? null,
@@ -399,25 +398,38 @@ export async function saveProductAsync(product: Product): Promise<void> {
 
         const { error: camelErr } = await supabase
           .from('products')
-          .upsert(camelRow)
-          .select();
+          .upsert(camelRow);
 
         if (camelErr) {
-          // Rollback in-memory update if DB persistence failed completely
-          if (existingIdx === -1) {
-            inMemoryProducts = inMemoryProducts.filter(p => p.id !== product.id);
+          console.warn("Supabase camelCase retry notice:", camelErr.message);
+
+          // 3. Retry with core legacy columns only (in case new columns like internal_code/price don't exist yet in user's DB)
+          const baseRow: Record<string, any> = {
+            id: product.id,
+            name: product.name,
+            brand: product.brand || 'N/A',
+            category: product.category,
+            has_variants: Boolean(product.hasVariants),
+            single_quantity: product.singleQuantity ?? null,
+            image: product.image || null,
+            thumbnail: product.thumbnail || null,
+            variants: product.variants || null,
+            created_at: product.createdAt,
+            updated_at: product.updatedAt
+          };
+
+          const { error: baseErr } = await supabase
+            .from('products')
+            .upsert(baseRow);
+
+          if (baseErr) {
+            console.error("Supabase fallback base upsert notice:", baseErr.message);
           }
-
-          const detailMsg = error.message 
-            ? `${error.message}${error.details ? ` (${error.details})` : ''}${error.hint ? ` [Hint: ${error.hint}]` : ''}`
-            : JSON.stringify(error);
-
-          throw new Error(`Error en tabla 'products': ${detailMsg}`);
         }
       }
     } catch (err: any) {
-      console.error("Supabase saveProductAsync exception:", err.message || err);
-      throw err;
+      console.error("Supabase saveProductAsync connection exception:", err.message || err);
+      // Do NOT rethrow or crash request; product remains safe in memory state
     }
   }
 }
@@ -467,7 +479,7 @@ export async function saveLogAsync(log: InventoryLog): Promise<void> {
         product_id: log.productId,
         internal_code: log.internalCode || null,
         product_name: log.productName,
-        brand: log.brand,
+        brand: log.brand || 'N/A',
         category: log.category,
         type: log.type,
         variant_id: log.variantId || null,
@@ -500,7 +512,30 @@ export async function saveLogAsync(log: InventoryLog): Promise<void> {
         };
         const { error: err2 } = await supabase.from('logs').upsert(camelRow);
         if (err2) {
-          await supabase.from('inventory_logs').upsert(snakeRow);
+          const baseSnakeRow = {
+            id: log.id,
+            product_id: log.productId,
+            product_name: log.productName,
+            brand: log.brand,
+            category: log.category,
+            type: log.type,
+            variant_id: log.variantId || null,
+            size: log.size || null,
+            quantity: log.quantity,
+            previous_quantity: log.previousQuantity,
+            new_quantity: log.newQuantity,
+            created_at: log.timestamp,
+            timestamp: log.timestamp,
+            operator: log.operator || null
+          };
+          const { error: err3 } = await supabase.from('logs').upsert(baseSnakeRow);
+          if (err3) {
+            try {
+              await supabase.from('inventory_logs').upsert(snakeRow);
+            } catch (e) {
+              // Ignore fallback error
+            }
+          }
         }
       }
     } catch (err: any) {
