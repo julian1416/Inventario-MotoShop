@@ -19,14 +19,18 @@ import {
   FileText,
   BadgeAlert,
   Sliders,
-  Check
+  Check,
+  BarChart3,
+  ShoppingBag,
+  Zap
 } from 'lucide-react';
 import ProductCard from './components/ProductCard';
 import ProductDetails from './components/ProductDetails';
 import RecentLogs from './components/RecentLogs';
 import AddProductModal from './components/AddProductModal';
 import QuickOutputModal from './components/QuickOutputModal';
-import { Zap } from 'lucide-react';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import SalesHistory from './components/SalesHistory';
 
 // Helper function to convert raw objects (whether camelCase or snake_case) into standardized Product
 function normalizeProduct(p: any): Product {
@@ -111,7 +115,7 @@ export default function App() {
   // Search & Navigation States
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [activeTab, setActiveTab] = useState<'inventario' | 'bitacora'>('inventario');
+  const [activeTab, setActiveTab] = useState<'inventario' | 'analisis' | 'ventas'>('inventario');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showQuickOutputModal, setShowQuickOutputModal] = useState<boolean>(false);
 
@@ -394,7 +398,7 @@ export default function App() {
 
           {/* Primary View Router */}
           <main className="flex-1 overflow-y-auto" id="main-scroller">
-            {activeTab === 'inventario' ? (
+            {activeTab === 'inventario' && (
               /* TAB 1: Inventory Products list */
               <div className="p-4 space-y-3">
                 {isLoading ? (
@@ -447,17 +451,28 @@ export default function App() {
                   </div>
                 )}
               </div>
-            ) : (
-              /* TAB 2: Historical Movement Logs */
-              <RecentLogs logs={logs} />
+            )}
+
+            {activeTab === 'analisis' && (
+              /* TAB 2: Visual Dashboard Analytics */
+              <AnalyticsDashboard 
+                products={products}
+                logs={logs}
+                onSelectProduct={(product) => setSelectedProduct(product)}
+              />
+            )}
+
+            {activeTab === 'ventas' && (
+              /* TAB 3: Sales History & Output Logs */
+              <SalesHistory logs={logs} />
             )}
           </main>
 
           {/* iOS Style Floating Bottom Tab Bar */}
-          <nav className="bg-white border-t border-slate-150 py-2.5 px-6 flex justify-around sticky bottom-0 z-20 shadow-lg shrink-0">
+          <nav className="bg-white border-t border-slate-150 py-2.5 px-4 flex justify-around sticky bottom-0 z-20 shadow-lg shrink-0">
             <button
               onClick={() => setActiveTab('inventario')}
-              className={`flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all ${
+              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
                 activeTab === 'inventario' ? 'text-orange-500 scale-105 font-bold' : 'text-slate-400 hover:text-slate-600'
               }`}
               id="tab-inventory"
@@ -465,15 +480,27 @@ export default function App() {
               <Package className="w-5 h-5 stroke-[2.2]" />
               <span className="text-[10px] tracking-wide uppercase font-bold">Bodega</span>
             </button>
+
             <button
-              onClick={() => setActiveTab('bitacora')}
-              className={`flex flex-col items-center gap-1 py-1 px-4 rounded-xl transition-all ${
-                activeTab === 'bitacora' ? 'text-orange-500 scale-105 font-bold' : 'text-slate-400 hover:text-slate-600'
+              onClick={() => setActiveTab('analisis')}
+              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
+                activeTab === 'analisis' ? 'text-orange-500 scale-105 font-bold' : 'text-slate-400 hover:text-slate-600'
               }`}
-              id="tab-logs"
+              id="tab-analytics"
             >
-              <Activity className="w-5 h-5 stroke-[2.2]" />
-              <span className="text-[10px] tracking-wide uppercase font-bold">Bitácora</span>
+              <BarChart3 className="w-5 h-5 stroke-[2.2]" />
+              <span className="text-[10px] tracking-wide uppercase font-bold">Análisis</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ventas')}
+              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${
+                activeTab === 'ventas' ? 'text-orange-500 scale-105 font-bold' : 'text-slate-400 hover:text-slate-600'
+              }`}
+              id="tab-sales"
+            >
+              <ShoppingBag className="w-5 h-5 stroke-[2.2]" />
+              <span className="text-[10px] tracking-wide uppercase font-bold">Ventas</span>
             </button>
           </nav>
         </>
