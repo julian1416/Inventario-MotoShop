@@ -264,12 +264,16 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess, 
                   <Tag className="w-3.5 h-3.5 text-orange-400" />
                   {activeVariant?.internalCode || product.internalCode || 'S/N'}
                 </span>
+
+                {/* PROMINENT MARCA BADGE */}
+                {product.brand && product.brand !== 'Genérico' && product.brand !== 'N/A' && (
+                  <span className="bg-orange-100 text-orange-900 border border-orange-200 font-bold text-xs px-2.5 py-1 rounded-lg flex items-center gap-1 uppercase tracking-wide">
+                    Marca: {product.brand}
+                  </span>
+                )}
               </div>
 
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{product.name}</h1>
-              {product.category === 'Llantas' && product.brand && product.brand !== 'Genérico' && product.brand !== 'N/A' && (
-                <p className="text-sm font-medium text-slate-500 mt-0.5">Marca: <span className="text-slate-800 font-semibold">{product.brand}</span></p>
-              )}
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">{product.name}</h1>
               {product.price !== undefined && product.price > 0 && (
                 <p className="text-lg font-extrabold text-emerald-600 mt-1">
                   ${product.price.toLocaleString('es-CO')}

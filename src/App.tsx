@@ -22,7 +22,8 @@ import {
   Check,
   BarChart3,
   ShoppingBag,
-  Zap
+  Zap,
+  Trash2
 } from 'lucide-react';
 import ProductCard from './components/ProductCard';
 import ProductDetails from './components/ProductDetails';
@@ -118,6 +119,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'inventario' | 'analisis' | 'ventas'>('inventario');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showQuickOutputModal, setShowQuickOutputModal] = useState<boolean>(false);
+  const [quickOutputProduct, setQuickOutputProduct] = useState<Product | null>(null);
 
   // Advanced Quick Filters
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Todos'>('Todos');
@@ -446,6 +448,10 @@ export default function App() {
                         key={p.id}
                         product={p}
                         onSelect={() => setSelectedProduct(p)}
+                        onQuickOutput={(prod) => {
+                          setQuickOutputProduct(prod);
+                          setShowQuickOutputModal(true);
+                        }}
                       />
                     ))}
                   </div>
@@ -523,11 +529,15 @@ export default function App() {
         />
       )}
 
-      {/* 4. Quick Output Modal by Internal Code */}
+      {/* 4. Quick Output / Decrease Quantity Modal */}
       {showQuickOutputModal && (
         <QuickOutputModal
           products={products}
-          onClose={() => setShowQuickOutputModal(false)}
+          initialProduct={quickOutputProduct}
+          onClose={() => {
+            setShowQuickOutputModal(false);
+            setQuickOutputProduct(null);
+          }}
           onTransactionSuccess={() => fetchData(false)}
         />
       )}

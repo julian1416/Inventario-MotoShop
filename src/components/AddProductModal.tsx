@@ -393,50 +393,34 @@ export default function AddProductModal({ existingProducts = [], onClose, onSucc
 
               {/* Marca field - ONLY for Llantas */}
               {category === 'Llantas' && (
-                <div className="space-y-1.5">
+                <div className="space-y-2 bg-orange-50/60 p-3.5 rounded-2xl border border-orange-100">
                   <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-slate-600">
+                    <label className="text-xs font-extrabold text-orange-950">
                       Marca de la Llanta *
                     </label>
-                    <span className="text-[10px] text-orange-600 font-extrabold bg-orange-50 px-2 py-0.5 rounded">
-                      Requerida para llantas
+                    <span className="text-[10px] text-orange-700 font-extrabold bg-white px-2 py-0.5 rounded border border-orange-200">                      
                     </span>
                   </div>
 
-                  <div className="space-y-2">
-                    <select
-                      value={brand}
-                      onChange={(e) => {
-                        setBrand(e.target.value);
-                        if (e.target.value !== 'Otro') setCustomBrand('');
-                      }}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none"
-                      required
-                    >
-                      <option value="">-- Seleccionar Marca de Llanta --</option>
-                      <option value="Michelin">Michelin</option>
-                      <option value="KTO">KTO</option>
-                      <option value="Kenda">Kenda</option>
-                      <option value="Rinova">Rinova</option>
-                      <option value="Pirelli">Pirelli</option>
-                      <option value="Metzeler">Metzeler</option>
-                      <option value="Dunlop">Dunlop</option>
-                      <option value="Continental">Continental</option>
-                      <option value="Maxxis">Maxxis</option>
-                      <option value="IRC">IRC</option>
-                      <option value="Otro">Otra Marca / Digitar manualmente...</option>
-                    </select>
-
-                    {(brand === 'Otro' || (brand && !['Michelin','KTO','Kenda','Rinova','Pirelli','Metzeler','Dunlop','Continental','Maxxis','IRC',''].includes(brand))) && (
-                      <input
-                        type="text"
-                        placeholder="Escribe la marca de la llanta..."
-                        value={customBrand}
-                        onChange={(e) => setCustomBrand(e.target.value)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-medium focus:ring-2 focus:ring-orange-500 outline-none"
-                        required
-                      />
-                    )}
+                  {/* 3 Main Brand Buttons: KTO, Kenda, Rinova */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {['KTO', 'Kenda', 'Rinova'].map((b) => (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => {
+                          setBrand(b);
+                          setCustomBrand('');
+                        }}
+                        className={`py-2.5 px-2 rounded-xl text-xs font-black transition-all cursor-pointer border ${
+                          brand === b
+                            ? 'bg-orange-600 text-white border-orange-600 shadow-sm scale-102'
+                            : 'bg-white text-slate-800 border-slate-200 hover:border-orange-300'
+                        }`}
+                      >
+                        {b}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

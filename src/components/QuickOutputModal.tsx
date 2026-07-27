@@ -17,17 +17,19 @@ import {
 
 interface QuickOutputModalProps {
   products: Product[];
+  initialProduct?: Product | null;
   onClose: () => void;
   onTransactionSuccess: () => void;
 }
 
 export default function QuickOutputModal({
   products,
+  initialProduct,
   onClose,
   onTransactionSuccess
 }: QuickOutputModalProps) {
   const [codeQuery, setCodeQuery] = useState<string>('');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(initialProduct || null);
   const [selectedVariant, setSelectedVariant] = useState<VisualVariant | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
@@ -35,6 +37,22 @@ export default function QuickOutputModal({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Initialize with initialProduct if provided
+  useEffect(() => {
+    if (initialProduct) {
+      setSelectedProduct(initialProduct);
+      if (initialProduct.hasVariants && initialProduct.variants && initialProduct.variants.length > 0) {
+        const v = initialProduct.variants[0];
+        setSelectedVariant(v);
+        const avail = v.sizes.find(s => s.quantity > 0) || v.sizes[0];
+        setSelectedSize(avail ? avail.size : '');
+        if (v.internalCode) setCodeQuery(v.internalCode);
+      } else {
+        if (initialProduct.internalCode) setCodeQuery(initialProduct.internalCode);
+      }
+    }
+  }, [initialProduct]);
 
   // Auto-lookup matching item whenever query changes
   useEffect(() => {
