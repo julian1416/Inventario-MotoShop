@@ -260,8 +260,8 @@ export default function ProductDetails({ product, onBack, onTransactionSuccess, 
                 </span>
 
                 {/* Internal Code Badge */}
-                <span className="bg-slate-900 text-white font-mono text-xs font-black px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-xs">
-                  <Tag className="w-3.5 h-3.5 text-orange-400" />
+                <span className="bg-orange-600 text-white font-mono text-xs font-black px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-2xs">
+                  <Tag className="w-3.5 h-3.5 text-white" />
                   {activeVariant?.internalCode || product.internalCode || 'S/N'}
                 </span>
 

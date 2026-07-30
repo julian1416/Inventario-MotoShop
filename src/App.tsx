@@ -216,7 +216,14 @@ export default function App() {
     }
 
     // 2. Category Filter
-    const matchesCategory = selectedCategory === 'Todos' || p.category === selectedCategory;
+    let matchesCategory = selectedCategory === 'Todos';
+    if (!matchesCategory) {
+      if (selectedCategory === 'Accesorios') {
+        matchesCategory = p.category === 'Accesorios' || p.category === 'Maleteros' || p.category === 'Lujos';
+      } else {
+        matchesCategory = p.category === selectedCategory;
+      }
+    }
 
     // 3. Stock Level Filter
     const totalStock = !p.hasVariants 
@@ -310,8 +317,8 @@ export default function App() {
 
                 {/* Filters Capsule Actions Bar */}
                 <div className="flex justify-between items-center">
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-[80%]">
-                    {['Todos', 'Cascos Adultos', 'Llantas', 'Maleteros', 'Lujos', 'Accesorios'].map((cat) => {
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-[80%] no-scrollbar">
+                    {['Todos', 'Cascos Adultos', 'Cascos Niños', 'Llantas', 'Parrillas', 'Accesorios', 'Otros'].map((cat) => {
                       const isSelected = selectedCategory === cat;
                       return (
                         <button

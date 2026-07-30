@@ -100,14 +100,14 @@ export default function ProductCard({ product, onSelect, onQuickOutput }: Produc
             <div className="flex gap-1 flex-wrap">
               {product.variants.map((v, i) => (
                 v.internalCode ? (
-                  <span key={v.id || i} className="text-[10px] bg-slate-900 text-white px-1.5 py-0.5 rounded font-mono font-extrabold shadow-3xs">
+                  <span key={v.id || i} className="text-xs bg-orange-600 text-white px-2 py-0.5 rounded-md font-mono font-black shadow-2xs">
                     {v.internalCode}
                   </span>
                 ) : null
               ))}
             </div>
           ) : product.internalCode ? (
-            <span className="text-[10px] bg-slate-900 text-white px-2 py-0.5 rounded font-mono font-extrabold shadow-3xs">
+            <span className="text-xs bg-orange-600 text-white px-2 py-0.5 rounded-md font-mono font-black shadow-2xs">
               {product.internalCode}
             </span>
           ) : null}

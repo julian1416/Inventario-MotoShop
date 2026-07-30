@@ -332,16 +332,20 @@ export default function AddProductModal({ existingProducts = [], onClose, onSucc
             
             {/* Category selection */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
-                <Tag className="w-3.5 h-3.5 text-orange-500" />
-                Categoría del Producto *
-              </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                  <Tag className="w-3.5 h-3.5 text-orange-500" />
+                  Categoría del Producto *
+                </label>
+                <span className="text-xs font-black font-mono bg-orange-600 text-white px-2.5 py-0.5 rounded-lg shadow-2xs">
+                  Código: {getPreviewCode(category, 0)}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   'Cascos Adultos', 'Cascos Niños', 
                   'Llantas', 'Parrillas', 
-                  'Maleteros', 'Accesorios', 
-                  'Lujos', 'Otros'
+                  'Accesorios', 'Otros'
                 ].map((cat) => (
                   <button
                     key={cat}
@@ -356,22 +360,6 @@ export default function AddProductModal({ existingProducts = [], onClose, onSucc
                     {cat}
                   </button>
                 ))}
-              </div>
-
-              {/* Automatic Code Prefix & Real-time Preview */}
-              <div className="bg-slate-900 text-white p-3.5 rounded-2xl text-xs font-mono flex items-center justify-between shadow-sm border border-slate-800">
-                <div className="flex items-center gap-2">
-                  <span className="bg-orange-500 text-white px-2 py-0.5 rounded text-[10px] font-black uppercase">
-                    Código Generado
-                  </span>
-                  <span className="text-orange-400 font-extrabold text-sm tracking-wider">
-                    {hasVariants 
-                      ? `[ ${getPreviewCode(category, 0)} ] (+1 por diseño)` 
-                      : `[ ${getPreviewCode(category, 0)} ]`
-                    }
-                  </span>
-                </div>
-                <span className="text-[10px] text-slate-400 font-sans font-medium">Asignación automática</span>
               </div>
             </div>
 
@@ -497,7 +485,7 @@ export default function AddProductModal({ existingProducts = [], onClose, onSucc
                     <div className="flex justify-between items-center pr-14">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-xs font-bold text-slate-800">Diseño #{vIdx + 1}</h4>
-                        <span className="bg-slate-900 text-orange-400 font-mono text-[11px] font-black px-2 py-0.5 rounded-md border border-slate-800 shadow-2xs">
+                        <span className="bg-orange-600 text-white font-mono text-xs font-black px-2.5 py-0.5 rounded-lg shadow-2xs">
                           Código: {getPreviewCode(category, vIdx)}
                         </span>
                       </div>
@@ -582,7 +570,7 @@ export default function AddProductModal({ existingProducts = [], onClose, onSucc
                     <Package className="w-4 h-4 text-slate-500" />
                     Inventario y Foto del Producto
                   </h3>
-                  <span className="bg-slate-900 text-orange-400 font-mono text-xs font-black px-2.5 py-1 rounded-lg border border-slate-800 shadow-2xs">
+                  <span className="bg-orange-600 text-white font-mono text-xs font-black px-2.5 py-1 rounded-lg shadow-2xs">
                     Código: {getPreviewCode(category, 0)}
                   </span>
                 </div>
